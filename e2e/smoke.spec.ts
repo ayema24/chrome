@@ -109,3 +109,23 @@ test('opening drill: play the opponent, deviate, get engine advice, return to th
   await clickSquare(page, 'e5');
   await expect(page.getByText(/Book move e5/)).toBeVisible();
 });
+
+test('perfect drills mark lines and the opening as learned', async ({ page }) => {
+  // Bird's Opening has a single line; White's moves:
+  const moves = [['f2', 'f4'], ['g1', 'f3'], ['e2', 'e3'], ['b2', 'b3'], ['c1', 'b2'], ['f1', 'e2'], ['e1', 'g1']];
+  await page.goto('./#/openings?id=bird&line=0&mode=practice');
+  for (let run = 0; run < 2; run++) {
+    if (run === 1) await page.getByRole('button', { name: 'Restart' }).click();
+    for (const [a, b] of moves) {
+      await clickSquare(page, a);
+      await clickSquare(page, b);
+      await page.waitForTimeout(650); // opponent's book reply
+    }
+    if (run === 0) await expect(page.getByText(/Perfect! 1 more perfect drill/)).toBeVisible();
+  }
+  await expect(page.locator('.result-banner')).toContainText('Opening learned');
+  await page.screenshot({ path: 'test-results/opening-learned.png' });
+  await page.goto('./#/openings?id=bird');
+  await expect(page.locator('h1')).toContainText('Learned');
+  await expect(page.getByText(/to master it/)).toBeVisible();
+});

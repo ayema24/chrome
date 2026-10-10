@@ -323,13 +323,21 @@ export function recordLineDrill(key: string, mistakePlies: number[], moves: numb
     const card = c.lineCards[key] ?? { key, due: 0, box: 0, reps: 0, lapses: 0, misses: {}, lastPracticed: 0 };
     card.reps++;
     card.lastPracticed = Date.now();
-    if (mistakePlies.length === 0) card.box = Math.min(BOX_DAYS.length - 1, card.box + 1);
-    else {
+    const now = Date.now();
+    if (mistakePlies.length === 0) {
+      // Learning (first two perfect runs) can happen in one sitting; after that a
+      // line only climbs when it is reviewed on schedule, so "mastered" means
+      // it survived a spaced review rather than a burst of repetitions.
+      if (card.box < 2 || card.due <= now) {
+        card.box = Math.min(BOX_DAYS.length - 1, card.box + 1);
+        card.due = now + BOX_DAYS[card.box] * DAY;
+      }
+    } else {
       card.box = Math.max(0, card.box - 2);
       card.lapses++;
       for (const p of mistakePlies) card.misses[p] = (card.misses[p] ?? 0) + 1;
+      card.due = now + BOX_DAYS[card.box] * DAY;
     }
-    card.due = Date.now() + BOX_DAYS[card.box] * DAY;
     c.lineCards[key] = card;
     c.drillResults.push({ t: Date.now(), key, mistakes: mistakePlies.length, moves });
   });

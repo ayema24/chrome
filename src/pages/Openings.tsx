@@ -5,14 +5,23 @@ import Explorer from '../components/Explorer';
 import EngineSuggest, { rateMove, CLASS_LABEL, type Verdict } from '../components/EngineSuggest';
 import { OPENINGS, type OpeningDef } from '../data/openings';
 import { linesFor, type ParsedLine } from '../lib/openings';
-import { useCore, updateCore, recordLineDrill, type LineCard } from '../lib/store';
+import { useCore, updateCore, recordLineDrill, getCore } from '../lib/store';
+import {
+  cardKey,
+  naturalSide,
+  lineStatus,
+  openingProgress,
+  nextStepText,
+  LINE_STATUS_LABEL,
+  OPENING_STATUS_LABEL,
+  type OpeningStatus,
+} from '../lib/mastery';
 import { navigate } from '../lib/router';
 import { tryUci } from '../lib/chess';
 import { moveSound, sound } from '../lib/sound';
 import { fireConfetti } from '../lib/confetti';
 import { Chess, type Move } from 'chess.js';
 
-const cardKey = (openingId: string, lineIndex: number, color: 'w' | 'b') => `${openingId}#${lineIndex}#${color}`;
 
 function repertoireSlot(o: OpeningDef): 'white' | 'vsE4' | 'vsD4' | null {
   if (o.side === 'w') return 'white';
@@ -43,11 +52,9 @@ function OpeningList({ search: initialSearch }: { search: string }) {
       (cat === 'all' || o.category === cat) &&
       (!search || `${o.name} ${o.summary} ${o.eco}`.toLowerCase().includes(search.toLowerCase().split(':')[0].trim())),
   );
-  const progress = (o: OpeningDef) => {
-    const ls = linesFor(o.id);
-    const cards = ls.map((l, i) => core.lineCards[cardKey(o.id, i, naturalSide(o, l))]).filter(Boolean) as LineCard[];
-    return { learned: cards.filter((c) => c.box >= 2).length, total: o.lines.length };
-  };
+  const progress = (o: OpeningDef) => openingProgress(core, o);
+  const masteredCount = OPENINGS.filter((o) => openingProgress(core, o).status === 'mastered').length;
+  const learnedCount = OPENINGS.filter((o) => ['learned', 'mastered'].includes(openingProgress(core, o).status)).length;
   return (
     <div className="stack">
       <div className="page-head">
@@ -106,6 +113,11 @@ function OpeningList({ search: initialSearch }: { search: string }) {
         <input type="search" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 220 }} />
       </div>
 
+      {(learnedCount > 0 || masteredCount > 0) && (
+        <div className="muted small">
+          🎓 {learnedCount} opening{learnedCount === 1 ? '' : 's'} learned · 🏆 {masteredCount} mastered
+        </div>
+      )}
       <div className="opening-grid">
         {list.map((o) => {
           const p = progress(o);
@@ -121,13 +133,14 @@ function OpeningList({ search: initialSearch }: { search: string }) {
                 <span className="pill">{o.level}</span>
                 <span className="pill">{o.eco}</span>
                 {Object.values(core.repertoire).includes(o.id) && <span className="pill accent">★ repertoire</span>}
+                {(p.status === 'learned' || p.status === 'mastered') && <StatusPill status={p.status} />}
               </div>
               <div className="muted small">{o.summary}</div>
-              <div className="progressbar" style={{ marginTop: 'auto' }}>
-                <div style={{ width: `${(p.learned / p.total) * 100}%` }} />
+              <div className={`progressbar ${p.status === 'mastered' ? 'done' : ''}`} style={{ marginTop: 'auto' }}>
+                <div style={{ width: `${((p.learned + p.mastered) / (2 * p.total)) * 100}%` }} />
               </div>
               <div className="muted small">
-                {p.learned}/{p.total} lines learned
+                {p.learned}/{p.total} lines learned · {p.mastered} mastered
               </div>
             </button>
           );
@@ -143,6 +156,7 @@ function OpeningDetail({ o, lineIndex, mode }: { o: OpeningDef; lineIndex: numbe
   const slot = repertoireSlot(o);
   const inRep = slot !== null && core.repertoire[slot] === o.id;
   const sel = lineIndex !== null ? lines[lineIndex] : null;
+  const prog = openingProgress(core, o);
 
   return (
     <div className="stack">
@@ -151,9 +165,11 @@ function OpeningDetail({ o, lineIndex, mode }: { o: OpeningDef; lineIndex: numbe
           <button className="btn small" onClick={() => navigate('openings')}>
             ← All openings
           </button>
-          <h1 style={{ marginTop: 8 }}>{o.name}</h1>
+          <h1 style={{ marginTop: 8 }}>
+            {o.name} {prog.status !== 'new' && <StatusPill status={prog.status} />}
+          </h1>
           <div className="muted">
-            {o.eco} · {o.category} · {o.level}
+            {o.eco} · {o.category} · {o.level} · {prog.learned}/{prog.total} lines learned · {prog.mastered} mastered
           </div>
         </div>
         {o.category !== 'trap' && slot && (
@@ -185,16 +201,19 @@ function OpeningDetail({ o, lineIndex, mode }: { o: OpeningDef; lineIndex: numbe
             <h3>Lines</h3>
             {lines.map((l) => {
               const card = core.lineCards[cardKey(o.id, l.lineIndex, naturalSide(o, l))];
+              const st = lineStatus(card);
+              const done = st === 'learned' || st === 'mastered';
               return (
                 <div key={l.lineIndex} className="task">
-                  <div className="tick" style={card && card.box >= 2 ? { background: 'var(--good)', borderColor: 'var(--good)', color: 'white' } : {}}>
-                    {card && card.box >= 2 ? '✓' : ''}
+                  <div className="tick" style={done ? { background: st === 'mastered' ? '#d9a21b' : 'var(--good)', borderColor: 'transparent', color: 'white' } : {}}>
+                    {st === 'mastered' ? '🏆' : done ? '✓' : ''}
                   </div>
                   <div>
-                    <div style={{ fontWeight: 600 }}>{l.name}</div>
+                    <div style={{ fontWeight: 600 }}>
+                      {l.name} <span className={`pill status-${st}`}>{LINE_STATUS_LABEL[st]}</span>
+                    </div>
                     <div className="muted small">
-                      {l.sans.length} moves
-                      {card ? ` · practised ${card.reps}× · next review ${card.due <= Date.now() ? 'now' : new Date(card.due).toLocaleDateString()}` : ''}
+                      {l.sans.length} moves{card ? ` · practised ${card.reps}×` : ''} · {nextStepText(card)}
                     </div>
                   </div>
                   <div className="row" style={{ flexWrap: 'nowrap' }}>
@@ -360,11 +379,8 @@ function LearnLine({ o, line }: { o: OpeningDef; line: ParsedLine }) {
   );
 }
 
-/** In trap lines the user should play the side that sets the trap, never the blunder. */
-function naturalSide(o: OpeningDef, line: ParsedLine): 'w' | 'b' {
-  const bad = line.sans.findIndex((s) => /\?/.test(s));
-  if (bad >= 0) return bad % 2 === 0 ? 'b' : 'w';
-  return o.side;
+function StatusPill({ status }: { status: OpeningStatus }) {
+  return <span className={`pill status-${status}`}>{OPENING_STATUS_LABEL[status]}</span>;
 }
 
 function PracticeLine({ o, line, onDone, forceColor }: { o: OpeningDef; line: ParsedLine; onDone?: () => void; forceColor?: 'w' | 'b' }) {
@@ -376,6 +392,7 @@ function PracticeLine({ o, line, onDone, forceColor }: { o: OpeningDef; line: Pa
   const [showAnswer, setShowAnswer] = useState(false);
   const [finished, setFinished] = useState(false);
   const [shake, setShake] = useState(0);
+  const [celebrate, setCelebrate] = useState<OpeningStatus | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // "Play both sides": the user also moves for the opponent and can try alternatives.
   const [bothSides, setBothSides] = useState(() => {
@@ -410,6 +427,7 @@ function PracticeLine({ o, line, onDone, forceColor }: { o: OpeningDef; line: Pa
     setShowAnswer(false);
     setOffBook(null);
     setVerdict(null);
+    setCelebrate(null);
     setMsg({ kind: 'info', text: `You play ${color === 'w' ? 'White' : 'Black'}. Play the moves of the line from memory.` });
     if (!userPlies[0]) opponentTurn(0);
   }
@@ -471,12 +489,41 @@ function PracticeLine({ o, line, onDone, forceColor }: { o: OpeningDef; line: Pa
   function complete(ms: number[]) {
     setFinished(true);
     const key = cardKey(o.id, line.lineIndex, color);
+    const counts = color === naturalSide(o, line); // the opening's own side drives mastery
+    const before = lineStatus(getCore().lineCards[key]);
+    const openingBefore = openingProgress(getCore(), o).status;
     recordLineDrill(key, ms, userPlies.filter(Boolean).length);
-    if (ms.length === 0) {
-      sound.solved();
-      fireConfetti(90);
-      setMsg({ kind: 'ok', text: 'Perfect! Line completed without mistakes. It will come back for review in a few days.' });
-    } else setMsg({ kind: 'fail', text: `Line completed with ${ms.length} mistake${ms.length > 1 ? 's' : ''}. It will come back tomorrow.` });
+    const card = getCore().lineCards[key];
+    const after = lineStatus(card);
+    const openingAfter = openingProgress(getCore(), o).status;
+    const next = nextStepText(card);
+    if (ms.length > 0) {
+      setMsg({
+        kind: 'fail',
+        text: `Line completed with ${ms.length} mistake${ms.length > 1 ? 's' : ''}.${before !== after ? ` Status: ${LINE_STATUS_LABEL[after]}.` : ''} It comes back tomorrow. ${next}`,
+      });
+      return;
+    }
+    if (counts && openingAfter !== openingBefore && (openingAfter === 'mastered' || openingAfter === 'learned')) {
+      sound.win();
+      fireConfetti();
+      setCelebrate(openingAfter);
+      setMsg({
+        kind: 'ok',
+        text:
+          openingAfter === 'mastered'
+            ? `🏆 You’ve MASTERED the ${o.name}! Every line survived a spaced review. Keep it fresh with the occasional check-up.`
+            : `🎓 You’ve learned every line of the ${o.name}! Review each line when it’s due to master the opening.`,
+      });
+      return;
+    }
+    sound.solved();
+    fireConfetti(90);
+    if (after === 'mastered' && before !== 'mastered') setMsg({ kind: 'ok', text: `🏆 Line mastered! ${next}` });
+    else if (after === 'learned' && before !== 'learned' && before !== 'mastered') setMsg({ kind: 'ok', text: `🎓 Line learned! ${next}` });
+    else if (before === after && (after === 'learned' || after === 'mastered'))
+      setMsg({ kind: 'ok', text: `Perfect again! Extra practice doesn’t move you up – only on-schedule reviews do. ${next}` });
+    else setMsg({ kind: 'ok', text: `Perfect! ${next}` });
   }
 
   function onMove(m: BoardMove) {
@@ -554,6 +601,17 @@ function PracticeLine({ o, line, onDone, forceColor }: { o: OpeningDef; line: Pa
         fen={fen}
         orientation={color}
         movable={movable}
+        overlay={
+          celebrate ? (
+            <button className="result-banner" onClick={() => setCelebrate(null)}>
+              <div className="big">{celebrate === 'mastered' ? '🏆 Opening mastered!' : '🎓 Opening learned!'}</div>
+              <div className="muted">{o.name}</div>
+              <div className="small muted" style={{ marginTop: 6 }}>
+                Tap to close
+              </div>
+            </button>
+          ) : undefined
+        }
         onMove={onMove}
         lastMove={last}
         arrows={arrows}

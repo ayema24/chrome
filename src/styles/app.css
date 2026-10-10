@@ -1253,3 +1253,17 @@ table.table {
 .engine-line:hover {
   color: var(--accent);
 }
+
+.pill.status-learned {
+  background: color-mix(in srgb, var(--good) 22%, transparent);
+  color: var(--good);
+}
+.pill.status-mastered {
+  background: color-mix(in srgb, #d9a21b 25%, transparent);
+  color: #c48a00;
+  font-weight: 700;
+}
+.pill.status-learning,
+.pill.status-started {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}

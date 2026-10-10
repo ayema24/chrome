@@ -19,6 +19,7 @@ import {
 import { themeLabel, TRAINABLE_THEMES } from '../lib/motifs';
 import { InsightRow, Stat } from './Home';
 import { navigate } from '../lib/router';
+import { allOpeningProgress, OPENING_STATUS_LABEL } from '../lib/mastery';
 
 export default function Progress() {
   const core = useCore();
@@ -171,6 +172,8 @@ export default function Progress() {
         </div>
       </div>
 
+      <OpeningMastery />
+
       <div className="grid-2">
         <div className="card">
           <h3>Last 30 days of training</h3>
@@ -241,6 +244,46 @@ function Comparison({ prev, now }: { prev: PeriodSummary; now: PeriodSummary }) 
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function OpeningMastery() {
+  const core = useCore();
+  const rows = useMemo(() => allOpeningProgress(core).filter((r) => r.progress.status !== 'new'), [core]);
+  const mastered = rows.filter((r) => r.progress.status === 'mastered').length;
+  const learned = rows.filter((r) => r.progress.status === 'learned').length;
+  const order = { mastered: 0, learned: 1, started: 2, new: 3 } as const;
+  return (
+    <div className="card">
+      <div className="row">
+        <h3 style={{ margin: 0 }}>Opening mastery</h3>
+        <span className="spacer" />
+        <span className="pill status-mastered">🏆 {mastered} mastered</span>
+        <span className="pill status-learned">🎓 {learned} learned</span>
+      </div>
+      {rows.length === 0 ? (
+        <div className="chart-empty">Drill an opening line to start tracking mastery</div>
+      ) : (
+        <div className="bars" style={{ marginTop: 10 }}>
+          {[...rows]
+            .sort((a, b) => order[a.progress.status] - order[b.progress.status] || b.progress.learned - a.progress.learned)
+            .map(({ opening, progress: p }) => (
+              <div key={opening.id} className="bar-row">
+                <button className="btn small" style={{ textAlign: 'left' }} onClick={() => navigate('openings', { id: opening.id })}>
+                  {opening.name}
+                </button>
+                <div className="bar-track">
+                  <div className="bar-fill" style={{ width: `${((p.learned + p.mastered) / (2 * p.total)) * 100}%` }} />
+                </div>
+                <span className="small">{OPENING_STATUS_LABEL[p.status]}</span>
+              </div>
+            ))}
+        </div>
+      )}
+      <div className="muted small" style={{ marginTop: 8 }}>
+        A line is learned after two perfect drills and mastered after a perfect review on its scheduled day. An opening is mastered when all its lines are.
+      </div>
     </div>
   );
 }
