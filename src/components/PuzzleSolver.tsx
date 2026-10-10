@@ -41,8 +41,19 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
   const pos = useRef(puzzle.fen);
 
   // Reset on new puzzle
+  // Bumped on every (re)start so stale timers from a previous attempt do nothing.
+  const gen = useRef(0);
+  const [retryKey, setRetryKey] = useState(0);
+  const [isRetry, setIsRetry] = useState(false);
+
+  // A new puzzle counts for your rating; a retry is practice only.
   useEffect(() => {
     reported.current = false;
+    setIsRetry(false);
+  }, [puzzle]);
+
+  useEffect(() => {
+    const g = ++gen.current;
     startedAt.current = Date.now();
     setStep(0);
     setArrows([]);
@@ -56,6 +67,7 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
       setLastMove(null);
       setStatus('intro');
       const t = setTimeout(() => {
+        if (gen.current !== g) return;
         setFen(puzzle.fen);
         setLastMove([puzzle.setupMove!.slice(0, 2), puzzle.setupMove!.slice(2, 4)]);
         setStatus('solving');
@@ -66,7 +78,12 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
     setFen(puzzle.fen);
     setLastMove(null);
     setStatus('solving');
-  }, [puzzle]);
+  }, [puzzle, retryKey]);
+
+  function retry() {
+    setIsRetry(true);
+    setRetryKey((k) => k + 1);
+  }
 
   function report(success: boolean) {
     if (reported.current) return;
@@ -77,7 +94,9 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
   function playReply(afterFen: string, nextStep: number) {
     const reply = puzzle.moves[nextStep];
     if (!reply) return;
+    const g = gen.current;
     setTimeout(() => {
+      if (gen.current !== g) return;
       const c = new Chess(afterFen);
       const mv = c.move(parseUci(reply));
       moveSound(mv.san);
@@ -177,8 +196,9 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
     let f = fen;
     let s = step;
     const moves = puzzle.moves;
+    const g = gen.current;
     const play = () => {
-      if (s >= moves.length) return;
+      if (s >= moves.length || gen.current !== g) return;
       const c = new Chess(f);
       let mv;
       try {
@@ -234,6 +254,7 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
               ? `Find a better move than the one you played. ${toMove} to move.`
               : `Find the best move for ${toMove}.${puzzle.moves.length > 1 ? ' The puzzle continues until the tactic is complete.' : ''}`}
           </p>
+          {isRetry && <p className="small" style={{ marginTop: 0 }}>↻ Practice attempt: this one doesn’t change your rating.</p>}
           {showThemes || done ? (
             <div className="row">
               {puzzle.themes
@@ -267,9 +288,14 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
             </>
           )}
           {done && (
-            <button className="btn primary" onClick={onNext}>
-              Next puzzle →
-            </button>
+            <>
+              <button className="btn" onClick={retry}>
+                ↻ Retry
+              </button>
+              <button className="btn primary" onClick={onNext}>
+                Next puzzle →
+              </button>
+            </>
           )}
           <span className="spacer" />
           <button

@@ -60,6 +60,11 @@ test('solve flow on a puzzle and opening drill', async ({ page }) => {
   await expect(page.locator('.board')).toBeVisible();
   await page.getByRole('button', { name: 'Show solution' }).click();
   await expect(page.getByRole('button', { name: /Next puzzle/ })).toBeVisible();
+  // Retry resets the same puzzle as practice
+  await page.waitForTimeout(1500);
+  await page.getByRole('button', { name: '↻ Retry' }).click();
+  await expect(page.getByText('Practice attempt')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Show solution' })).toBeVisible({ timeout: 3000 });
   await page.screenshot({ path: 'test-results/puzzle.png' });
 
   await page.goto('./#/openings?id=italian&line=0&mode=practice');
