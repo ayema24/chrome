@@ -12,6 +12,7 @@ import { useCore, updateSettings, recordPlay, upsertGame, uid, type GameRecord }
 import { enqueueAnalysis } from '../lib/analyzer';
 import { navigate, takePending } from '../lib/router';
 import { moveSound, sound } from '../lib/sound';
+import { fireConfetti } from '../lib/confetti';
 
 interface GameState {
   id: string;
@@ -52,6 +53,7 @@ export default function Play({ params }: { params: Record<string, string> }) {
   const [thinking, setThinking] = useState(false);
   const [view, setView] = useState<number | null>(null); // browsing history
   const [hintArrow, setHintArrow] = useState<Arrow | null>(null);
+  const [bannerOpen, setBannerOpen] = useState(false);
   const evalCache = useRef(new Map<string, SearchResult>());
   const [liveEval, setLiveEval] = useState<Eval | null>(null);
   const gameRef = useRef(game);
@@ -177,7 +179,7 @@ export default function Play({ params }: { params: Record<string, string> }) {
         const evA = lineToEval(after.lines[0], mv.after);
         setLiveEval(evA);
         const review = reviewMove(mv, ply, evB, evA, before, after, { bookPlies: book, prev: gameRef.current.reviews[ply - 1] });
-        if (review.cls === 'blunder' || review.cls === 'mistake') sound.bad();
+        if (review.cls === 'blunder' || review.cls === 'mistake') setTimeout(() => sound.alert(), 150);
         next = { ...gameRef.current!, reviews: { ...gameRef.current!.reviews, [ply]: review } };
         setGame(next);
       }
@@ -188,10 +190,17 @@ export default function Play({ params }: { params: Record<string, string> }) {
 
   function finish(g: GameState) {
     if (g.saved || !g.over) return;
-    sound.end();
     const lv = levelById(g.level);
     const userWon = (g.over.result === '1-0' && g.userColor === 'w') || (g.over.result === '0-1' && g.userColor === 'b');
     const score: 0 | 0.5 | 1 = g.over.result === '1/2-1/2' ? 0.5 : userWon ? 1 : 0;
+    setTimeout(() => {
+      if (score === 1) {
+        sound.win();
+        fireConfetti();
+      } else if (score === 0.5) sound.draw();
+      else sound.lose();
+    }, 350);
+    setBannerOpen(true);
     const record = toRecord(g);
     upsertGame(record);
     // Games with lots of help don't count towards your rating.
@@ -246,6 +255,8 @@ export default function Play({ params }: { params: Record<string, string> }) {
       saved: false,
     };
     evalCache.current.clear();
+    sound.start();
+    setBannerOpen(false);
     getEngine().newGame();
     setGame(g);
     setView(null);
@@ -405,6 +416,20 @@ export default function Play({ params }: { params: Record<string, string> }) {
     arrows.push({ from: shownReview.best.slice(0, 2), to: shownReview.best.slice(2, 4), color: 'g' });
   }
   const userTurn = !game.over && turn === game.userColor && view === null;
+  // Quality badge on the square the reviewed move landed on
+  const badgeReview = view !== null ? game.reviews[view - 1] : game.reviews[game.moves.length - 1] ?? game.reviews[game.moves.length - 2];
+  const badgeMoveIdx = view !== null ? view - 1 : game.reviews[game.moves.length - 1] ? game.moves.length - 1 : game.moves.length - 2;
+  const boardBadge =
+    game.coach && badgeReview && game.moves[badgeMoveIdx]
+      ? { square: game.moves[badgeMoveIdx].to, kind: badgeReview.cls }
+      : null;
+  const resultTitle = game.over
+    ? game.over.result === '1/2-1/2'
+      ? '½–½ Draw'
+      : (game.over.result === '1-0') === (game.userColor === 'w')
+        ? '🎉 You won!'
+        : 'You lost'
+    : '';
   const reviewList = Object.values(game.reviews);
   const counts = { inaccuracy: 0, mistake: 0, blunder: 0 } as Record<string, number>;
   for (const r of reviewList) if (r.cls in counts) counts[r.cls]++;
@@ -429,6 +454,18 @@ export default function Play({ params }: { params: Record<string, string> }) {
             arrows={arrows}
             theme={core.settings.boardTheme}
             showCoords={core.settings.showCoords}
+            badge={boardBadge}
+            overlay={
+              game.over && bannerOpen && view === null ? (
+                <button className="result-banner" onClick={() => setBannerOpen(false)}>
+                  <div className="big">{resultTitle}</div>
+                  <div className="muted">{game.over.reason}</div>
+                  <div className="small muted" style={{ marginTop: 6 }}>
+                    Tap to see the board
+                  </div>
+                </button>
+              ) : undefined
+            }
           />
         </div>
         <div className="player-strip">

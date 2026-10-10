@@ -1,6 +1,21 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Chess, type Square } from 'chess.js';
 import { PIECE_IMG } from './pieces';
+import { useCore } from '../lib/store';
+
+export type BadgeKind = 'book' | 'best' | 'excellent' | 'good' | 'inaccuracy' | 'mistake' | 'blunder' | 'correct' | 'wrong';
+
+const BADGE_SYMBOL: Record<BadgeKind, string> = {
+  book: '📖',
+  best: '★',
+  excellent: '!',
+  good: '✓',
+  inaccuracy: '?!',
+  mistake: '?',
+  blunder: '??',
+  correct: '✓',
+  wrong: '✗',
+};
 
 export interface Arrow {
   from: string;
@@ -29,12 +44,23 @@ export interface BoardProps {
   showCoords?: boolean;
   /** When true, any piece can be moved anywhere (no legality checks). */
   freeMove?: boolean;
+  /** Small icon on a square, e.g. the quality of the last move. */
+  badge?: { square: string; kind: BadgeKind } | null;
+  /** Change this number to shake the board (wrong answer). */
+  shake?: number;
+  /** Briefly glow the board ('good' | 'bad'); change `glowKey` to replay. */
+  glow?: 'good' | 'bad' | null;
+  glowKey?: number;
+  /** Content drawn over the board (e.g. a result banner). */
+  overlay?: ReactNode;
 }
 
 interface PieceItem {
   key: string;
   sq: Square;
   code: string; // e.g. wK
+  /** Captured / removed: fades out, then disappears. */
+  dying?: boolean;
 }
 
 const FILES = 'abcdefgh';
@@ -99,6 +125,8 @@ function diffPieces(prev: PieceItem[], next: { sq: Square; code: string }[]): Pi
       unmatchedPrev.splice(best, 1);
     } else result.push({ key: `p${keySeq++}`, sq: n.sq, code: n.code });
   }
+  // Pieces that disappeared (captures) fade out instead of vanishing.
+  for (const p of unmatchedPrev) result.push({ ...p, dying: true });
   return result;
 }
 
@@ -114,7 +142,14 @@ export default function Board({
   theme = 'brown',
   showCoords = true,
   freeMove = false,
+  badge = null,
+  shake = 0,
+  glow = null,
+  glowKey = 0,
+  overlay,
 }: BoardProps) {
+  const animations = useCore().settings.animations;
+  const wrapRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const [pieces, setPieces] = useState<PieceItem[]>(() => diffPieces([], piecesFromFen(fen)));
   const [selected, setSelected] = useState<Square | null>(null);
@@ -123,10 +158,33 @@ export default function Board({
   const downRef = useRef<{ sq: Square; wasSelected: boolean; moved: boolean } | null>(null);
 
   useEffect(() => {
-    setPieces((prev) => diffPieces(prev, piecesFromFen(fen)));
+    setPieces((prev) => diffPieces(prev.filter((p) => !p.dying), piecesFromFen(fen)));
     setSelected(null);
     setPromo(null);
+    const t = setTimeout(() => setPieces((ps) => (ps.some((p) => p.dying) ? ps.filter((p) => !p.dying) : ps)), 320);
+    return () => clearTimeout(t);
   }, [fen]);
+
+  // Shake / glow effects are toggled with classes so the board isn't remounted.
+  useEffect(() => {
+    if (!shake || !wrapRef.current) return;
+    const el = wrapRef.current;
+    el.classList.remove('shake');
+    void el.offsetWidth; // restart the animation
+    el.classList.add('shake');
+    const t = setTimeout(() => el.classList.remove('shake'), 500);
+    return () => clearTimeout(t);
+  }, [shake]);
+  useEffect(() => {
+    if (!glow || !wrapRef.current) return;
+    const el = wrapRef.current;
+    const cls = glow === 'good' ? 'glow-good' : 'glow-bad';
+    el.classList.remove('glow-good', 'glow-bad');
+    void el.offsetWidth;
+    el.classList.add(cls);
+    const t = setTimeout(() => el.classList.remove(cls), 900);
+    return () => clearTimeout(t);
+  }, [glow, glowKey]);
 
   const chess = useMemo(() => {
     try {
@@ -171,7 +229,7 @@ export default function Board({
   }
 
   function pieceAt(sq: Square) {
-    return pieces.find((p) => p.sq === sq);
+    return pieces.find((p) => p.sq === sq && !p.dying);
   }
 
   function tryMove(from: Square, to: Square) {
@@ -266,7 +324,7 @@ export default function Board({
     }
 
   return (
-    <div className="board-wrap" style={style}>
+    <div ref={wrapRef} className={`board-wrap${animations ? '' : ' no-anim'}`} style={style}>
       <div
         ref={boardRef}
         className="board"
@@ -285,7 +343,7 @@ export default function Board({
               src={PIECE_IMG[p.code]}
               alt={p.code}
               draggable={false}
-              className={`piece${dragging ? ' ghost' : ''}`}
+              className={`piece${dragging && !p.dying ? ' ghost' : ''}${p.dying ? ' dying' : ''}`}
               style={{ transform: `translate(${x * 100}%, ${y * 100}%)` }}
             />
           );
@@ -299,6 +357,21 @@ export default function Board({
             style={{ left: `calc(${drag.x}px - 6.25%)`, top: `calc(${drag.y}px - 6.25%)` }}
           />
         )}
+        {badge &&
+          (() => {
+            const [bx, by] = sqToXY(badge.square, orientation);
+            return (
+              <span
+                key={`${badge.square}-${badge.kind}`}
+                className={`move-badge ${badge.kind}`}
+                style={{ left: `${(bx + 1) * 12.5}%`, top: `${by * 12.5}%` }}
+                aria-label={badge.kind}
+              >
+                {BADGE_SYMBOL[badge.kind]}
+              </span>
+            );
+          })()}
+        {overlay && <div className="board-overlay">{overlay}</div>}
         <svg className="arrows" viewBox="0 0 8 8">
           <defs>
             {['g', 'r', 'b', 'y'].map((c) => (

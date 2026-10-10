@@ -8,6 +8,7 @@ import { useCore, updateCore, recordLineDrill, type LineCard } from '../lib/stor
 import { navigate } from '../lib/router';
 import { tryUci } from '../lib/chess';
 import { moveSound, sound } from '../lib/sound';
+import { fireConfetti } from '../lib/confetti';
 import { Chess } from 'chess.js';
 
 const cardKey = (openingId: string, lineIndex: number, color: 'w' | 'b') => `${openingId}#${lineIndex}#${color}`;
@@ -358,6 +359,7 @@ function PracticeLine({ o, line, onDone, forceColor }: { o: OpeningDef; line: Pa
   const [msg, setMsg] = useState<{ kind: 'ok' | 'fail' | 'info'; text: string } | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [shake, setShake] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Trap lines end with a blunder by the "victim" – stop before the opponent’s mistake is required from the user.
@@ -396,7 +398,8 @@ function PracticeLine({ o, line, onDone, forceColor }: { o: OpeningDef; line: Pa
     const key = cardKey(o.id, line.lineIndex, color);
     recordLineDrill(key, ms, userPlies.filter(Boolean).length);
     if (ms.length === 0) {
-      sound.good();
+      sound.solved();
+      fireConfetti(90);
       setMsg({ kind: 'ok', text: 'Perfect! Line completed without mistakes. It will come back for review in a few days.' });
     } else setMsg({ kind: 'fail', text: `Line completed with ${ms.length} mistake${ms.length > 1 ? 's' : ''}. It will come back tomorrow.` });
   }
@@ -416,6 +419,7 @@ function PracticeLine({ o, line, onDone, forceColor }: { o: OpeningDef; line: Pa
       else if (!userPlies[nextIdx]) autoPlay(nextIdx);
     } else {
       sound.bad();
+      setShake((n) => n + 1);
       const played = tryUci(line.fens[idx], uci);
       const ms = mistakes.includes(idx) ? mistakes : [...mistakes, idx];
       setMistakes(ms);
@@ -442,6 +446,8 @@ function PracticeLine({ o, line, onDone, forceColor }: { o: OpeningDef; line: Pa
         onMove={onMove}
         lastMove={last}
         arrows={arrows}
+        shake={shake}
+        badge={idx > 0 && userPlies[idx - 1] && !showAnswer ? { square: line.ucis[idx - 1].slice(2, 4), kind: 'correct' } : null}
         theme={core.settings.boardTheme}
         showCoords={core.settings.showCoords}
       />

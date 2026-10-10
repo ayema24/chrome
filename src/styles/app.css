@@ -506,7 +506,15 @@ table.table {
   height: 12.5%;
   z-index: 2;
   pointer-events: none;
-  transition: transform 0.18s ease;
+  transition:
+    transform 0.26s cubic-bezier(0.22, 0.9, 0.3, 1),
+    opacity 0.28s ease,
+    scale 0.28s ease;
+}
+.piece.dying {
+  opacity: 0;
+  scale: 0.35;
+  z-index: 1;
 }
 .piece.ghost {
   opacity: 0.35;
@@ -514,7 +522,8 @@ table.table {
 .piece.dragging {
   z-index: 10;
   transition: none;
-  transform: scale(1.12);
+  transform: scale(1.15);
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.35));
 }
 .arrows {
   position: absolute;
@@ -1059,5 +1068,180 @@ table.table {
     grid-template-columns: repeat(4, 1fr);
     gap: 8px;
     margin-bottom: 14px;
+  }
+}
+
+/* ---------------------------------------------------------------- effects */
+.sq.last::after {
+  animation: fade-in 0.25s ease;
+}
+.sq.check {
+  animation: check-pulse 1.1s ease-in-out infinite;
+}
+.hint {
+  animation: pop-in 0.15s ease-out;
+}
+.move-badge {
+  position: absolute;
+  z-index: 6;
+  width: 5.4%;
+  height: 5.4%;
+  min-width: 20px;
+  min-height: 20px;
+  transform: translate(-108%, 8%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(9px, 1.5vw, 13px);
+  font-weight: 800;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  border: 2px solid #fff;
+  pointer-events: none;
+  animation: badge-pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.move-badge.best,
+.move-badge.excellent,
+.move-badge.correct {
+  background: #3fae5a;
+}
+.move-badge.good {
+  background: #7a9b5e;
+}
+.move-badge.book {
+  background: #a7845f;
+  font-size: clamp(8px, 1.1vw, 11px);
+}
+.move-badge.inaccuracy {
+  background: #e3b026;
+}
+.move-badge.mistake {
+  background: #e8873a;
+}
+.move-badge.blunder,
+.move-badge.wrong {
+  background: #d8453b;
+}
+.board-wrap.shake {
+  animation: shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+.board-wrap.glow-good .board {
+  animation: glow-good 0.9s ease;
+}
+.board-wrap.glow-bad .board {
+  animation: glow-bad 0.9s ease;
+}
+.board-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  animation: fade-in 0.35s ease;
+}
+.result-banner {
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 18px 26px;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  animation: banner-in 0.5s cubic-bezier(0.3, 1.4, 0.5, 1);
+  max-width: 80%;
+}
+.result-banner .big {
+  font-size: clamp(1.3rem, 4vw, 2rem);
+  font-weight: 800;
+}
+.confetti-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1000;
+}
+.feedback {
+  animation: slide-up 0.25s ease;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes pop-in {
+  from {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+@keyframes badge-pop {
+  0% {
+    transform: translate(-108%, 8%) scale(0);
+  }
+  100% {
+    transform: translate(-108%, 8%) scale(1);
+  }
+}
+@keyframes check-pulse {
+  50% {
+    filter: brightness(1.35);
+  }
+}
+@keyframes shake {
+  10%,
+  90% {
+    transform: translateX(-2px);
+  }
+  20%,
+  80% {
+    transform: translateX(4px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-8px);
+  }
+  40%,
+  60% {
+    transform: translateX(8px);
+  }
+}
+@keyframes glow-good {
+  30% {
+    box-shadow: 0 0 0 4px #3fae5a, 0 0 30px 6px rgba(63, 174, 90, 0.6);
+  }
+}
+@keyframes glow-bad {
+  30% {
+    box-shadow: 0 0 0 4px #d8453b, 0 0 30px 6px rgba(216, 69, 59, 0.55);
+  }
+}
+@keyframes banner-in {
+  from {
+    transform: translateY(20px) scale(0.85);
+    opacity: 0;
+  }
+}
+@keyframes slide-up {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+}
+.no-anim *,
+.no-anim *::after {
+  transition: none !important;
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

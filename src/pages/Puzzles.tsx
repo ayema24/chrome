@@ -13,6 +13,7 @@ import { ENDGAMES, type EndgameDrill } from '../data/endgames';
 import { getEngine, isCancelled } from '../lib/engine';
 import { parseUci } from '../lib/chess';
 import { moveSound, sound } from '../lib/sound';
+import { fireConfetti } from '../lib/confetti';
 import { TAG_LABEL, type MistakeTag } from '../lib/analysis';
 
 type Mode = 'rated' | 'daily' | 'mistakes' | 'endgames';
@@ -317,8 +318,12 @@ function EndgameGame({ drill, onBack }: { drill: EndgameDrill; onBack: () => voi
     setStatus(success ? 'won' : 'lost');
     setMsg(text);
     recordEndgame(drill.id, success);
-    if (success) sound.good();
-    else sound.bad();
+    setTimeout(() => {
+      if (success) {
+        sound.win();
+        fireConfetti();
+      } else sound.lose();
+    }, 300);
   }
 
   function evaluate(list: Move[]): boolean {

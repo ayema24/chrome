@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
-import Board, { type Arrow, type BoardMove } from './Board';
+import Board, { type Arrow, type BoardMove, type BadgeKind } from './Board';
 import type { Puzzle } from '../lib/puzzleTypes';
 import { parseUci, moveToUci, sideToMove, uciLineToSan, formatLine } from '../lib/chess';
 import { getEngine } from '../lib/engine';
@@ -34,6 +34,9 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
   const reported = useRef(false);
   const startedAt = useRef(Date.now());
   const [checking, setChecking] = useState(false);
+  const [shake, setShake] = useState(0);
+  const [glowKey, setGlowKey] = useState(0);
+  const [badge, setBadge] = useState<{ square: string; kind: BadgeKind } | null>(null);
   // The real puzzle position (the displayed fen can briefly show a wrong move).
   const pos = useRef(puzzle.fen);
 
@@ -46,6 +49,7 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
     setHighlights({});
     setMessage('');
     setShowThemes(false);
+    setBadge(null);
     pos.current = puzzle.fen;
     if (puzzle.fenBeforeSetup && puzzle.setupMove) {
       setFen(puzzle.fenBeforeSetup);
@@ -78,6 +82,7 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
       const mv = c.move(parseUci(reply));
       moveSound(mv.san);
       pos.current = c.fen();
+      setBadge(null);
       setFen(c.fen());
       setLastMove([mv.from, mv.to]);
       setStep(nextStep + 1);
@@ -125,10 +130,14 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
       if (nextStep >= puzzle.moves.length || chess.isCheckmate() || (puzzle.source === 'mistake' && uci !== expected)) {
         setStatus('solved');
         setMessage(uci === expected ? 'Correct! Puzzle solved.' : 'That works too! Puzzle solved.');
-        sound.good();
+        setBadge({ square: mv.to, kind: 'correct' });
+        setGlowKey((k) => k + 1);
+        setTimeout(() => sound.solved(), 120);
         report(true);
       } else {
         setStatus('correct');
+        setBadge({ square: mv.to, kind: 'correct' });
+        setTimeout(() => sound.good(), 100);
         setMessage('Good move! Keep going…');
         setStep(nextStep);
         playReply(chess.fen(), nextStep);
@@ -139,12 +148,15 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
       setFen(chess.fen());
       setLastMove([mv.from, mv.to]);
       setStatus('wrong');
+      setShake((n) => n + 1);
+      setBadge({ square: mv.to, kind: 'wrong' });
       setMessage(`${mv.san} is not the answer. Try again, or view the solution.`);
       report(false);
       setTimeout(() => {
         if (pos.current === fen) {
           setFen(fen);
           setLastMove(null);
+          setBadge(null);
         }
       }, 600);
     }
@@ -202,6 +214,10 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
           lastMove={lastMove}
           arrows={arrows}
           highlights={highlights}
+          badge={badge}
+          shake={shake}
+          glow={glowKey ? 'good' : null}
+          glowKey={glowKey}
           theme={core.settings.boardTheme}
           showCoords={core.settings.showCoords}
         />

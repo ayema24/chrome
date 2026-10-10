@@ -17,6 +17,8 @@ export interface Settings {
   lichessUser: string;
   chesscomUser: string;
   sound: boolean;
+  volume: number; // 0..100
+  animations: boolean;
   autoAnalyse: boolean;
 }
 
@@ -124,6 +126,8 @@ export const DEFAULT_SETTINGS: Settings = {
   lichessUser: '',
   chesscomUser: '',
   sound: true,
+  volume: 70,
+  animations: true,
   autoAnalyse: true,
 };
 

@@ -105,6 +105,13 @@ export default function Analysis({ params }: { params: Record<string, string> })
     };
   }, [fen, engineOn]);
 
+  // Click sound when stepping forward through the game
+  const prevIdx = useRef(idx);
+  useEffect(() => {
+    if (idx === prevIdx.current + 1 && line[idx - 1]) moveSound(line[idx - 1].san);
+    prevIdx.current = idx;
+  }, [idx, line]);
+
   const liveEval: Eval | null = lines[0] ? lineToEval(lines[0], fen) : analysis ? analysis.evals[idx] : null;
 
   // -------------------------------------------------------------- moves
@@ -112,7 +119,6 @@ export default function Analysis({ params }: { params: Record<string, string> })
     const uci = typeof m === 'string' ? m : m.from + m.to + (m.promotion ?? '');
     const r = tryUci(fen, uci);
     if (!r) return;
-    moveSound(r.move.san);
     const next = line[idx];
     if (next && next.from + next.to + (next.promotion ?? '') === uci) {
       setIdx(idx + 1);
@@ -185,7 +191,17 @@ export default function Analysis({ params }: { params: Record<string, string> })
         )}
         <div className="board-col">
           <EvalBar ev={liveEval} orientation={orientation} />
-          <Board fen={fen} orientation={orientation} movable="both" onMove={playMove} lastMove={lastMove} arrows={arrows} theme={core.settings.boardTheme} showCoords={core.settings.showCoords} />
+          <Board
+            fen={fen}
+            orientation={orientation}
+            movable="both"
+            onMove={playMove}
+            lastMove={lastMove}
+            arrows={arrows}
+            theme={core.settings.boardTheme}
+            showCoords={core.settings.showCoords}
+            badge={moveReview && idx > 0 ? { square: line[idx - 1].to, kind: moveReview.cls } : null}
+          />
         </div>
         {record && (
           <div className="player-strip">

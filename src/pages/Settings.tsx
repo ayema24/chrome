@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import Board from '../components/Board';
 import { useCore, updateSettings, updateCore, exportData, importData, resetAll } from '../lib/store';
 import { START_FEN } from '../lib/chess';
+import { sound } from '../lib/sound';
 
 export default function Settings() {
   const core = useCore();
@@ -70,7 +71,28 @@ export default function Settings() {
               <input type="checkbox" checked={s.showCoords} onChange={(e) => updateSettings({ showCoords: e.target.checked })} /> Show coordinates
             </label>
             <label className="check">
-              <input type="checkbox" checked={s.sound} onChange={(e) => updateSettings({ sound: e.target.checked })} /> Sounds
+              <input type="checkbox" checked={s.sound} onChange={(e) => updateSettings({ sound: e.target.checked })} /> Sound effects
+            </label>
+            <label className="field">
+              Volume: {s.volume ?? 70}%
+              <input type="range" min={0} max={100} value={s.volume ?? 70} disabled={!s.sound} onChange={(e) => updateSettings({ volume: +e.target.value })} />
+            </label>
+            <div className="row">
+              <button className="btn small" disabled={!s.sound} onClick={() => sound.move()}>
+                ▶ Move
+              </button>
+              <button className="btn small" disabled={!s.sound} onClick={() => sound.capture()}>
+                ▶ Capture
+              </button>
+              <button className="btn small" disabled={!s.sound} onClick={() => sound.check()}>
+                ▶ Check
+              </button>
+              <button className="btn small" disabled={!s.sound} onClick={() => sound.win()}>
+                ▶ Win
+              </button>
+            </div>
+            <label className="check">
+              <input type="checkbox" checked={s.animations} onChange={(e) => updateSettings({ animations: e.target.checked })} /> Animations & confetti
             </label>
           </div>
           <div style={{ maxWidth: 220 }}>
