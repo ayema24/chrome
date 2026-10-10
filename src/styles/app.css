@@ -1245,3 +1245,11 @@ table.table {
     animation-iteration-count: 1 !important;
   }
 }
+.engine-suggest .best-move {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+.engine-line:hover {
+  color: var(--accent);
+}

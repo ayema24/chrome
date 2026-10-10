@@ -31,6 +31,8 @@ export interface SearchOptions {
   skill?: number; // 0..20
   /** Optional UCI move list to restrict the search to. */
   searchMoves?: string[];
+  /** Label so a caller can cancel only its own searches with stop(tag). */
+  tag?: string;
   onInfo?: (lines: PvLine[]) => void;
 }
 
@@ -141,6 +143,15 @@ export class Engine {
       this.queue.push({ fen, opts, resolve, reject, cancelled: false });
       this.pump();
     });
+  }
+
+  /** Cancels queued and running searches that carry this tag. */
+  stop(tag: string) {
+    for (const j of this.queue) if (j.opts.tag === tag) j.cancelled = true;
+    if (this.current && this.current.opts.tag === tag && !this.current.cancelled) {
+      this.current.cancelled = true;
+      this.transport.send('stop');
+    }
   }
 
   /** Cancels everything queued and stops the running search. */

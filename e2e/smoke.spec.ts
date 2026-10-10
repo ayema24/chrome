@@ -90,3 +90,22 @@ test('analysis of a pasted game', async ({ page }) => {
   await page.screenshot({ path: 'test-results/home.png', fullPage: true });
   expect(errors).toEqual([]);
 });
+
+test('opening drill: play the opponent, deviate, get engine advice, return to the line', async ({ page }) => {
+  await page.goto('./#/openings?id=italian&line=0&mode=practice');
+  await page.getByText('I play the opponent too').click();
+  await clickSquare(page, 'e2');
+  await clickSquare(page, 'e4');
+  // Opponent's turn: the book move is 1...e5; play 1...f6?! instead
+  await expect(page.getByText(/Now move for your opponent/)).toBeVisible();
+  await clickSquare(page, 'f7');
+  await clickSquare(page, 'f6');
+  await expect(page.getByText(/off the book/)).toBeVisible();
+  await expect(page.locator('.engine-suggest .best-move')).toBeVisible({ timeout: 20000 });
+  await expect(page.locator('.cls-badge').first()).toBeVisible({ timeout: 20000 });
+  await page.screenshot({ path: 'test-results/drill-offbook.png' });
+  await page.getByRole('button', { name: '↩ Back to the line' }).click();
+  await clickSquare(page, 'e7');
+  await clickSquare(page, 'e5');
+  await expect(page.getByText(/Book move e5/)).toBeVisible();
+});
