@@ -13,10 +13,10 @@ import { Chess } from 'chess.js';
 
 const cardKey = (openingId: string, lineIndex: number, color: 'w' | 'b') => `${openingId}#${lineIndex}#${color}`;
 
-function repertoireSlot(o: OpeningDef): 'white' | 'vsE4' | 'vsD4' {
+function repertoireSlot(o: OpeningDef): 'white' | 'vsE4' | 'vsD4' | null {
   if (o.side === 'w') return 'white';
   const first = linesFor(o.id)[0]?.sans[0];
-  return first === 'e4' ? 'vsE4' : 'vsD4';
+  return first === 'e4' ? 'vsE4' : first === 'd4' ? 'vsD4' : null;
 }
 
 const SLOT_LABEL = { white: 'My White opening', vsE4: 'My defence vs 1.e4', vsD4: 'My defence vs 1.d4' };
@@ -140,7 +140,7 @@ function OpeningDetail({ o, lineIndex, mode }: { o: OpeningDef; lineIndex: numbe
   const core = useCore();
   const lines = useMemo(() => linesFor(o.id), [o.id]);
   const slot = repertoireSlot(o);
-  const inRep = core.repertoire[slot] === o.id;
+  const inRep = slot !== null && core.repertoire[slot] === o.id;
   const sel = lineIndex !== null ? lines[lineIndex] : null;
 
   return (
@@ -155,16 +155,16 @@ function OpeningDetail({ o, lineIndex, mode }: { o: OpeningDef; lineIndex: numbe
             {o.eco} · {o.category} · {o.level}
           </div>
         </div>
-        {o.category !== 'trap' && (
+        {o.category !== 'trap' && slot && (
           <button
             className={`btn ${inRep ? '' : 'primary'}`}
             onClick={() =>
               updateCore((c) => {
-                c.repertoire[slot] = inRep ? null : o.id;
+                if (slot) c.repertoire[slot] = inRep ? null : o.id;
               })
             }
           >
-            {inRep ? '★ In your repertoire' : `Add as “${SLOT_LABEL[slot]}”`}
+            {inRep ? '★ In your repertoire' : `Add as “${SLOT_LABEL[slot!]}”`}
           </button>
         )}
       </div>
