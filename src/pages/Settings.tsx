@@ -3,6 +3,7 @@ import Board from '../components/Board';
 import { useCore, updateSettings, updateCore, exportData, importData, resetAll } from '../lib/store';
 import { START_FEN } from '../lib/chess';
 import { sound } from '../lib/sound';
+import { useSync, connectSync, disconnectSync, syncNow, TOKEN_URL } from '../lib/sync';
 
 export default function Settings() {
   const core = useCore();
@@ -132,6 +133,8 @@ export default function Settings() {
         </div>
       </div>
 
+      <SyncCard />
+
       <div className="card stack" style={{ gap: 12 }}>
         <h2>Your data</h2>
         <p className="muted small">
@@ -161,6 +164,83 @@ export default function Settings() {
       <div className="card small muted">
         Chess Coach uses Stockfish 18 (GPLv3) via stockfish.js, chess.js, the Lichess and Chess.com public APIs, and the Cburnett piece set.
       </div>
+    </div>
+  );
+}
+
+function SyncCard() {
+  const sync = useSync();
+  const [token, setToken] = useState('');
+  const [busy, setBusy] = useState(false);
+  const ago = sync.lastSync ? Math.round((Date.now() - sync.lastSync) / 60000) : null;
+  return (
+    <div className="card stack" style={{ gap: 12 }}>
+      <div className="row">
+        <h2 style={{ margin: 0 }}>Sync between devices</h2>
+        <span className="spacer" />
+        {sync.configured && (
+          <span className={`pill ${sync.state === 'error' ? '' : 'status-learned'}`}>
+            {sync.state === 'syncing' ? 'Syncing…' : sync.state === 'error' ? '⚠ Sync problem' : '✓ On'}
+          </span>
+        )}
+      </div>
+      {!sync.configured ? (
+        <>
+          <p className="small">
+            Keep your phone and laptop in step through a private Gist on your GitHub account. Your progress is merged, so training on both devices never
+            loses anything. Set it up once on each device:
+          </p>
+          <ol className="small" style={{ margin: 0, paddingLeft: 20 }}>
+            <li>
+              <a href={TOKEN_URL} target="_blank" rel="noreferrer">
+                Create a GitHub token
+              </a>{' '}
+              – the “gist” box is already ticked. Choose an expiry (e.g. “No expiration” or 1 year), then “Generate token”.
+            </li>
+            <li>Copy the token (starts with ghp_) and paste it below.</li>
+            <li>Do the same on your other device with the same token (or a second one).</li>
+          </ol>
+          <div className="row" style={{ flexWrap: 'nowrap' }}>
+            <input type="password" placeholder="ghp_…" value={token} onChange={(e) => setToken(e.target.value)} />
+            <button
+              className="btn primary"
+              disabled={!token.trim() || busy}
+              onClick={async () => {
+                setBusy(true);
+                await connectSync(token);
+                setBusy(false);
+                setToken('');
+              }}
+            >
+              {busy ? 'Connecting…' : 'Connect'}
+            </button>
+          </div>
+          <p className="muted small">The token is stored only in this browser and is never included in the synced data.</p>
+        </>
+      ) : (
+        <>
+          <div className="small">
+            {sync.state === 'error' ? (
+              <span className="bad">{sync.error}</span>
+            ) : (
+              <>Last synced {ago === null ? 'never' : ago < 1 ? 'just now' : `${ago} min ago`}. Syncs automatically when you open the app and a few seconds after you train.</>
+            )}
+          </div>
+          <div className="row">
+            <button className="btn" onClick={() => void syncNow()} disabled={sync.state === 'syncing'}>
+              ↻ Sync now
+            </button>
+            <button className="btn danger" onClick={disconnectSync}>
+              Disconnect this device
+            </button>
+          </div>
+          {sync.gistId && (
+            <p className="muted small">
+              Stored in a secret Gist ({sync.gistId.slice(0, 7)}…). Disconnecting keeps your data on this device and in the Gist.
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }

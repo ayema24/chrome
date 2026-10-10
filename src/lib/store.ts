@@ -97,6 +97,10 @@ export interface CoreData {
   endgameResults: EndgameResult[];
   repertoire: Repertoire;
   lessonsViewed: Record<string, number>;
+  /** Last local change (for sync merges). */
+  updatedAt?: number;
+  /** Ids of deleted games, so sync doesn't bring them back. */
+  deletedGames?: string[];
   /** Puzzle Rush personal bests by mode. */
   rushBest?: Record<string, number>;
   /** Board-vision drill personal bests by mode. */
@@ -162,6 +166,13 @@ let games: GameRecord[] = [];
 let loaded = false;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
+// Local edits (not sync updates) notify the sync engine.
+const changeListeners = new Set<() => void>();
+const localChange = () => changeListeners.forEach((l) => l());
+export function onLocalChange(l: () => void) {
+  changeListeners.add(l);
+  return () => changeListeners.delete(l);
+}
 
 const CORE_KEY = 'chess-coach:core';
 const GAMES_KEY = 'chess-coach:games';
@@ -205,7 +216,18 @@ export function updateCore(fn: (c: CoreData) => CoreData | void) {
   const draft = structuredClone(core);
   const res = fn(draft);
   core = res ?? draft;
+  core.updatedAt = Date.now();
   persistCore();
+  emit();
+  localChange();
+}
+
+/** Replaces all data with a merged copy from sync (does not trigger another sync). */
+export function applySynced(c: CoreData, g: GameRecord[]) {
+  core = { ...freshCore(), ...c, settings: { ...DEFAULT_SETTINGS, ...c.settings } };
+  games = [...g].sort((a, b) => b.date - a.date);
+  persistCore();
+  persistGames();
   emit();
 }
 
@@ -221,6 +243,7 @@ export function upsertGame(g: GameRecord) {
   games.sort((a, b) => b.date - a.date);
   persistGames();
   emit();
+  localChange();
 }
 
 export function upsertGames(list: GameRecord[]) {
@@ -232,12 +255,16 @@ export function upsertGames(list: GameRecord[]) {
   games = [...map.values()].sort((a, b) => b.date - a.date);
   persistGames();
   emit();
+  localChange();
 }
 
 export function deleteGame(id: string) {
   games = games.filter((g) => g.id !== id);
+  core = { ...core, deletedGames: [...(core.deletedGames ?? []), id], updatedAt: Date.now() };
+  persistCore();
   persistGames();
   emit();
+  localChange();
 }
 
 export function subscribe(l: () => void) {
@@ -264,6 +291,7 @@ export function importData(json: string) {
   persistCore();
   persistGames();
   emit();
+  localChange();
 }
 
 export function resetAll() {

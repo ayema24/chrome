@@ -42,7 +42,7 @@ npx playwright test   # end-to-end tests in a real browser
 
 **Deploy:** every push runs `.github/workflows/ci.yml` (typecheck, tests, build). Pushes to the default branch also deploy to GitHub Pages, at https://ayema24.github.io/chrome/ for this repo. Turn that on once under *Settings → Pages → Source: GitHub Actions*. The build uses relative paths, so it works from any sub-path or static host.
 
-Your data (games, ratings, history) is stored privately in the browser's IndexedDB. Use *Settings → Export backup* to move it between devices.
+Your data (games, ratings, history) is stored in the browser's IndexedDB. To use the app on more than one device, turn on *Settings → Sync between devices*. It saves to a secret GitHub Gist with a token that can only access Gists, and merges progress from every device. *Export backup* gives you a manual copy.
 
 ### Regenerating the offline puzzle set
 ```bash
