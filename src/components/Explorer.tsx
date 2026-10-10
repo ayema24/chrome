@@ -39,8 +39,9 @@ export default function Explorer({ fen, onMove }: { fen: string; onMove?: (uci: 
 
   async function openGame(id: string) {
     try {
-      const pgn = await fetchMastersGamePgn(id, core.settings.lichessToken || undefined);
-      const rec = pgnToRecord(pgn, 'pgn', undefined, `master-${id}`);
+      const src = data?.source === 'lichess' ? 'lichess' : 'masters';
+      const pgn = await fetchMastersGamePgn(id, core.settings.lichessToken || undefined, src);
+      const rec = pgnToRecord(pgn, 'pgn', undefined, `${src}-${id}`);
       if (rec) {
         upsertGame(rec);
         navigate('analysis', { game: rec.id });

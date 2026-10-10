@@ -35,7 +35,7 @@ npm test         # unit tests (includes engine-backed tests)
 npx playwright test   # end-to-end tests in a real browser
 ```
 
-**Deploy:** pushing to `main` runs `.github/workflows/ci.yml`. To publish to GitHub Pages, enable *Settings → Pages → Source: GitHub Actions* once. The build uses relative paths, so it works from any sub-path or static host.
+**Deploy:** every push runs `.github/workflows/ci.yml` (typecheck, tests, build). Pushes to the default branch also deploy to GitHub Pages, at https://ayema24.github.io/chrome/ for this repo. Turn that on once under *Settings → Pages → Source: GitHub Actions*. The build uses relative paths, so it works from any sub-path or static host.
 
 Your data (games, ratings, history) is stored privately in the browser's IndexedDB. Use *Settings → Export backup* to move it between devices.
 

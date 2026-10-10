@@ -95,8 +95,9 @@ export function exploreBook(fen: string): ExplorerResult {
   return { source: 'book', opening: null, white: 0, draws: 0, black: 0, moves, topGames: [] };
 }
 
-export async function fetchMastersGamePgn(id: string, token?: string): Promise<string> {
-  const res = await fetch(`https://explorer.lichess.ovh/masters/pgn/${id}`, { headers: authHeaders(token) });
+export async function fetchMastersGamePgn(id: string, token?: string, source: 'masters' | 'lichess' = 'masters'): Promise<string> {
+  const url = source === 'masters' ? `https://explorer.lichess.ovh/masters/pgn/${id}` : `https://lichess.org/game/export/${id}?clocks=true`;
+  const res = await fetch(url, { headers: { Accept: 'application/x-chess-pgn', ...authHeaders(token) } });
   if (!res.ok) throw new Error(`Could not fetch game (${res.status})`);
   return res.text();
 }

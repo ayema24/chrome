@@ -15,6 +15,7 @@ const TARGET = parseInt(process.argv[2] ?? '200', 10);
 let seed = parseInt(process.argv[3] ?? '1234567', 10);
 const OUT = process.argv[4] ?? '../src/data/puzzles.json';
 const SKIP_CLASSICS = process.argv[5] === 'noclassics';
+const DEADLINE = Date.now() + parseFloat(process.argv[6] ?? '600') * 60000; // minutes
 const rand = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
 const pick = <T,>(a: T[]) => a[Math.floor(rand() * a.length)];
 
@@ -125,7 +126,7 @@ async function main() {
   // 2. Self-play generated puzzles
   const lines = allLines().filter((l) => !/trap/i.test(l.name));
   let games = 0;
-  while (out.length < TARGET + (SKIP_CLASSICS ? 0 : CLASSICS.length) && games < 3000) {
+  while (out.length < TARGET + (SKIP_CLASSICS ? 0 : CLASSICS.length) && games < 3000 && Date.now() < DEADLINE) {
     games++;
     const line = pick(lines);
     const startPly = Math.min(line.fens.length - 1, 4 + Math.floor(rand() * 10));
@@ -160,6 +161,7 @@ async function main() {
               fenBeforeSetup: lastMove?.before,
             });
             seen.add(fenKey(fen));
+            writeFileSync(new URL(OUT, import.meta.url), JSON.stringify(out));
             console.log(`[${out.length}] game ${games} ply ${ply} ${key} ${sol.join(' ')}`);
           }
         }

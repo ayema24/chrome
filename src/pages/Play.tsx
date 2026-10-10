@@ -27,8 +27,17 @@ interface GameState {
   saved: boolean;
 }
 
-// Keep the game alive when navigating between pages.
-let savedGame: GameState | null = null;
+// Keep the game alive when navigating between pages (and across reloads).
+const SAVE_KEY = 'cc-current-game';
+let savedGame: GameState | null = (() => {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    const g = raw ? (JSON.parse(raw) as GameState) : null;
+    return g && !g.saved ? g : null;
+  } catch {
+    return null;
+  }
+})();
 
 const COACH_DEPTH = 12;
 
@@ -50,7 +59,19 @@ export default function Play({ params }: { params: Record<string, string> }) {
 
   useEffect(() => {
     savedGame = game;
+    try {
+      if (game && !game.saved) localStorage.setItem(SAVE_KEY, JSON.stringify(game));
+      else localStorage.removeItem(SAVE_KEY);
+    } catch {
+      /* storage unavailable */
+    }
   }, [game]);
+
+  // A restored game where it's the engine's turn needs a nudge.
+  useEffect(() => {
+    if (game && !game.over && !thinking && turn !== game.userColor) void engineMove(game);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fen = game ? (game.moves.length ? game.moves[game.moves.length - 1].after : game.startFen) : START_FEN;
   const shownFen = game && view !== null ? (view === 0 ? game.startFen : game.moves[view - 1].after) : fen;
@@ -89,7 +110,10 @@ export default function Play({ params }: { params: Record<string, string> }) {
     return { ...g, over: { result, reason } };
   }
 
+  const engineBusy = useRef(false);
   async function engineMove(g: GameState) {
+    if (engineBusy.current) return;
+    engineBusy.current = true;
     const f = g.moves.length ? g.moves[g.moves.length - 1].after : g.startFen;
     setThinking(true);
     const started = Date.now();
@@ -106,7 +130,7 @@ export default function Play({ params }: { params: Record<string, string> }) {
       }
       const wait = 350 - (Date.now() - started);
       if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-      if (gameRef.current?.id !== g.id || !uci) return;
+      if (gameRef.current?.id !== g.id || !uci || gameRef.current.moves.length !== g.moves.length || gameRef.current.over) return;
       const mv = chess.move(parseUci(uci));
       moveSound(mv.san);
       let next: GameState = { ...gameRef.current!, moves: [...gameRef.current!.moves, mv] };
@@ -120,6 +144,7 @@ export default function Play({ params }: { params: Record<string, string> }) {
     } catch (e) {
       if (!isCancelled(e)) console.error(e);
     } finally {
+      engineBusy.current = false;
       setThinking(false);
     }
   }
