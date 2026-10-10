@@ -129,3 +129,11 @@ test('perfect drills mark lines and the opening as learned', async ({ page }) =>
   await expect(page.locator('h1')).toContainText('Learned');
   await expect(page.getByText(/to master it/)).toBeVisible();
 });
+
+test("Queen's Gambit Declined can be chosen as the defence to 1.d4", async ({ page }) => {
+  await page.goto('./#/openings?id=qgd');
+  await page.getByRole('button', { name: /Add as “My defence vs 1.d4”/ }).click();
+  await expect(page.getByRole('button', { name: '★ In your repertoire' })).toBeVisible();
+  await page.goto('./#/openings');
+  await expect(page.locator('.notice').filter({ hasText: 'vs 1.d4' })).toContainText("Queen's Gambit Declined");
+});

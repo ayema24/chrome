@@ -298,6 +298,48 @@ export const OPENINGS: OpeningDef[] = [
   },
   // ------------------------------------------------------------------ BLACK
   {
+    id: 'qgd',
+    name: "Queen's Gambit Declined",
+    eco: 'D30–D69',
+    side: 'b',
+    category: 'opening',
+    level: 'intermediate',
+    summary:
+      'Black’s most classical answer to the Queen’s Gambit: hold the d5 point with ...e6, develop solidly and free the position later with ...c5 or ...e5. Trusted by world champions for over a century.',
+    ideas: [
+      'Keep a pawn on d5 – it is your stake in the centre.',
+      'The c8 bishop is the problem piece: free it with ...b6/...Bb7, ...dxc4 + ...e5, or by trading on d5.',
+      'Relieve the pressure by exchanging pieces (...Ne4, ...h6 to ask the g5 bishop).',
+      'In the Exchange (Carlsbad) structure, White plays the minority attack b4–b5; Black plays on the kingside.',
+    ],
+    lines: [
+      {
+        name: 'Tartakower Defence',
+        pgn: `1. d4 d5 2. c4 e6 {Declined: d5 stays strong.} 3. Nc3 Nf6 4. Bg5 {Pins the knight that defends d5.} Be7 {Breaks the pin.} 5. e3 O-O 6. Nf3 h6 {Ask the bishop to decide.} 7. Bh4 b6 {The Tartakower: the c8 bishop goes to b7.} 8. cxd5 Nxd5 {Exchanges relieve Black’s position.} 9. Bxe7 Qxe7 10. Nxd5 exd5 11. Rc1 Be6 {Solid and active. Black often plays ...c5 later, accepting hanging pawns for piece activity.}`,
+      },
+      {
+        name: 'Lasker Defence',
+        pgn: `1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Be7 5. e3 O-O 6. Nf3 h6 7. Bh4 Ne4 {The Lasker: trade pieces to ease the cramp.} 8. Bxe7 Qxe7 9. cxd5 Nxc3 10. bxc3 exd5 11. Qb3 Rd8 12. c4 dxc4 13. Bxc4 Nc6 {Black has freed the position; next ...Na5 or ...Bg4 with equality.}`,
+      },
+      {
+        name: 'Exchange Variation (Carlsbad)',
+        pgn: `1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. cxd5 exd5 {The Carlsbad structure.} 5. Bg5 c6 6. e3 Be7 7. Bd3 Nbd7 8. Qc2 O-O 9. Nge2 Re8 10. O-O Nf8 {The knight heads to g6. White will try the minority attack (Rb1, b4–b5); Black looks for kingside play with ...Ng6 and ...Ne4.}`,
+      },
+      {
+        name: 'Cambridge Springs',
+        pgn: `1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Nbd7 {Sets the Elephant Trap…} 5. e3 c6 6. Nf3 Qa5 {The Cambridge Springs: the queen pins c3 and eyes g5.} 7. Nd2 Bb4 8. Qc2 O-O 9. Be2 e5 {Black strikes in the centre with active pieces.}`,
+      },
+      {
+        name: 'Against 5.Bf4',
+        pgn: `1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Nf3 Be7 5. Bf4 {A modern favourite.} O-O 6. e3 c5 {Strike at once.} 7. dxc5 Bxc5 8. a3 Nc6 9. Qc2 Qa5 {Active pieces; Black is comfortable.} 10. Rd1 Rd8 {Pressure on the d-file balances White's space.}`,
+      },
+      {
+        name: 'Trap: Elephant Trap',
+        pgn: `1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Nbd7 5. cxd5 exd5 6. Nxd5?? {White thinks the f6 knight is pinned.} Nxd5! 7. Bxd8 Bb4+ {The queen comes back with interest.} 8. Qd2 Bxd2+ 9. Kxd2 Kxd8 {Black is a piece up.}`,
+      },
+    ],
+  },
+  {
     id: 'najdorf',
     name: 'Sicilian Najdorf',
     eco: 'B90–B99',
