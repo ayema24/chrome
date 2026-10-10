@@ -8,6 +8,8 @@ export interface EndgameDrill {
   /** Win = checkmate (or promotion if `promote`); draw = survive `moves` moves or reach a draw. */
   promote?: boolean;
   moves?: number;
+  /** Theoretical win the engine underrates without tablebases. */
+  knownWin?: boolean;
   level: 'beginner' | 'intermediate' | 'advanced';
   tip: string;
 }
@@ -89,5 +91,41 @@ export const ENDGAMES: EndgameDrill[] = [
     goal: 'win',
     level: 'advanced',
     tip: 'Force the king in front of its pawn with checks/pins, then use the tempo to bring your king closer.',
+  },
+  {
+    id: 'rook-cutoff',
+    title: 'Rook & pawn vs rook: king cut off',
+    fen: '8/8/8/5k2/8/2P5/2K5/4R2r w - - 0 1',
+    goal: 'win',
+    promote: true,
+    level: 'intermediate',
+    tip: 'Your rook keeps the enemy king cut off on the e-file. Walk your king up in front of the pawn, use the rook to block checks, then push.',
+  },
+  {
+    id: 'outside-passer',
+    title: 'Outside passed pawn',
+    fen: '8/5pk1/8/8/1P6/8/5K2/8 w - - 0 1',
+    goal: 'win',
+    promote: true,
+    level: 'intermediate',
+    tip: 'Push the b-pawn: the enemy king must run over to stop it. Meanwhile your king eats the f-pawn and returns – a classic pawn-endgame win.',
+  },
+  {
+    id: 'opp-bishops',
+    title: 'Opposite-coloured bishops: hold the draw',
+    fen: '8/4k3/8/3PK3/8/8/1B6/4b3 b - - 0 1',
+    goal: 'draw',
+    moves: 30,
+    level: 'intermediate',
+    tip: 'A pawn up is often not enough with opposite-coloured bishops. Blockade the pawn with your king on the light squares and keep your bishop on its diagonal.',
+  },
+  {
+    id: 'kbn-k',
+    title: 'Bishop & knight mate',
+    fen: '8/8/8/4k3/8/8/8/2B1KN2 w - - 0 1',
+    goal: 'win',
+    knownWin: true,
+    level: 'advanced',
+    tip: 'Drive the king to the edge, then to a corner of your bishop’s colour. The “W manoeuvre” with the knight stops it escaping. Hard – but a great technique test.',
   },
 ];

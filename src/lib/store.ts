@@ -97,6 +97,12 @@ export interface CoreData {
   endgameResults: EndgameResult[];
   repertoire: Repertoire;
   lessonsViewed: Record<string, number>;
+  /** Puzzle Rush personal bests by mode. */
+  rushBest?: Record<string, number>;
+  /** Board-vision drill personal bests by mode. */
+  visionBest?: Record<string, number>;
+  /** Guess-the-move scores per game id (0..100). */
+  guessScores?: Record<string, number>;
 }
 
 export interface GameRecord {

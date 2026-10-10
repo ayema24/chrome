@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess, type Move } from 'chess.js';
 import PuzzleSolver from '../components/PuzzleSolver';
+import PuzzleRush from '../components/PuzzleRush';
+import VisionDrills from '../components/VisionDrills';
+import GuessTheMove from '../components/GuessTheMove';
 import Board, { type BoardMove } from '../components/Board';
 import { useCore, recordPuzzle, reviewMistake, recordEndgame, getCore, type MistakeCard } from '../lib/store';
 import { pickLocalPuzzle, localThemes, LOCAL_PUZZLES } from '../lib/puzzles';
@@ -16,7 +19,7 @@ import { moveSound, sound } from '../lib/sound';
 import { fireConfetti } from '../lib/confetti';
 import { TAG_LABEL, type MistakeTag } from '../lib/analysis';
 
-type Mode = 'rated' | 'daily' | 'mistakes' | 'endgames';
+type Mode = 'rated' | 'rush' | 'vision' | 'guess' | 'daily' | 'mistakes' | 'endgames';
 
 export default function Puzzles({ params }: { params: Record<string, string> }) {
   const mode = (params.mode as Mode) || 'rated';
@@ -33,6 +36,9 @@ export default function Puzzles({ params }: { params: Record<string, string> }) 
           {(
             [
               ['rated', 'Tactics'],
+              ['rush', 'Rush'],
+              ['vision', 'Vision'],
+              ['guess', 'Guess the move'],
               ['daily', 'Daily'],
               ['mistakes', 'My mistakes'],
               ['endgames', 'Endgames'],
@@ -45,6 +51,9 @@ export default function Puzzles({ params }: { params: Record<string, string> }) 
         </div>
       </div>
       {mode === 'rated' && <RatedPuzzles theme={theme} />}
+      {mode === 'rush' && <PuzzleRush />}
+      {mode === 'vision' && <VisionDrills />}
+      {mode === 'guess' && <GuessTheMove />}
       {mode === 'daily' && <DailyPuzzle />}
       {mode === 'mistakes' && <MistakeReview />}
       {mode === 'endgames' && <EndgameDrills initial={params.id} />}

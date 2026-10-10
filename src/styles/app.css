@@ -1267,3 +1267,49 @@ table.table {
 .pill.status-started {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
+
+.clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  min-width: 64px;
+  text-align: center;
+}
+.clock.active {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--accent);
+}
+.clock.low.active {
+  color: #fff;
+  background: var(--bad);
+  border-color: var(--bad);
+}
+.rush-score {
+  font-size: 2rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.rush-strikes {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 4px;
+}
+.coord-target {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(3rem, 12vw, 7rem);
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  z-index: 8;
+}

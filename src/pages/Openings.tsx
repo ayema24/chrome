@@ -16,7 +16,9 @@ import {
   OPENING_STATUS_LABEL,
   type OpeningStatus,
 } from '../lib/mastery';
-import { navigate } from '../lib/router';
+import { navigate, setPending } from '../lib/router';
+import { buildOpeningReport } from '../lib/openingReport';
+import { useGames } from '../lib/store';
 import { tryUci } from '../lib/chess';
 import { moveSound, sound } from '../lib/sound';
 import { fireConfetti } from '../lib/confetti';
@@ -33,6 +35,7 @@ const SLOT_LABEL = { white: 'My White opening', vsE4: 'My defence vs 1.e4', vsD4
 
 export default function Openings({ params }: { params: Record<string, string> }) {
   if (params.mode === 'review') return <ReviewQueue />;
+  if (params.mode === 'report') return <OpeningReportView />;
   if (params.id) {
     const o = OPENINGS.find((x) => x.id === params.id);
     if (o) return <OpeningDetail o={o} lineIndex={params.line ? +params.line : null} mode={(params.mode as 'learn' | 'practice') ?? 'learn'} />;
@@ -62,6 +65,9 @@ function OpeningList({ search: initialSearch }: { search: string }) {
           <h1>Openings & gambits</h1>
           <div className="muted">Learn the ideas move by move, then drill the lines until they stick. Lines come back for review on a schedule.</div>
         </div>
+        <button className="btn" onClick={() => navigate('openings', { mode: 'report' })}>
+          📊 My games report
+        </button>
         {due.length > 0 && (
           <button className="btn primary" onClick={() => navigate('openings', { mode: 'review' })}>
             Review {due.length} due line{due.length > 1 ? 's' : ''}
@@ -359,6 +365,15 @@ function LearnLine({ o, line }: { o: OpeningDef; line: ParsedLine }) {
             End of the line.{' '}
             <button className="btn small primary" onClick={() => navigate('openings', { id: o.id, line: String(line.lineIndex), mode: 'practice' })}>
               Now drill it from memory →
+            </button>{' '}
+            <button
+              className="btn small"
+              onClick={() => {
+                setPending({ fen: line.fens[line.fens.length - 1], color: naturalSide(o, line) });
+                navigate('play');
+              }}
+            >
+              ♟ Play the middlegame from here
             </button>
           </div>
         )}
@@ -716,6 +731,17 @@ function PracticeLine({ o, line, onDone, forceColor }: { o: OpeningDef; line: Pa
               Study the line again
             </button>
           )}
+          {finished && (
+            <button
+              className="btn"
+              onClick={() => {
+                setPending({ fen: line.fens[line.fens.length - 1], color });
+                navigate('play');
+              }}
+            >
+              ♟ Play on vs engine
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -761,4 +787,129 @@ function ReviewQueue() {
 
 function PracticeLineWithColor({ o, line, color, onDone }: { o: OpeningDef; line: ParsedLine; color: 'w' | 'b'; onDone: () => void }) {
   return <PracticeLine o={o} line={line} onDone={onDone} forceColor={color} />;
+}
+
+function OpeningReportView() {
+  const core = useCore();
+  const games = useGames();
+  const report = useMemo(() => buildOpeningReport(games), [games]);
+  const sanArrow = (fen: string, san: string | null, color: 'g' | 'r'): Arrow | null => {
+    if (!san) return null;
+    try {
+      const m = new Chess(fen).move(san);
+      return { from: m.from, to: m.to, color };
+    } catch {
+      return null;
+    }
+  };
+  const pct = (gs: { score: number | null }[]) => {
+    const sc = gs.filter((g) => g.score !== null) as { score: number }[];
+    return sc.length ? `${Math.round((sc.reduce((a, b) => a + b.score, 0) / sc.length) * 100)}%` : '–';
+  };
+  return (
+    <div className="stack">
+      <div className="page-head">
+        <div>
+          <button className="btn small" onClick={() => navigate('openings')}>
+            ← All openings
+          </button>
+          <h1 style={{ marginTop: 8 }}>My opening report</h1>
+          <div className="muted">
+            From {report.gamesScanned} of your games
+            {report.avgBookExit ? ` · you leave the studied lines around move ${report.avgBookExit.toFixed(0)}` : ''}
+            {report.opponentDeviations ? ` · opponents left the book first in ${report.opponentDeviations} games` : ''}
+          </div>
+        </div>
+      </div>
+      {report.gamesScanned === 0 && (
+        <div className="card">
+          <p className="muted">Import or play some games first – the report compares them with the lines you study.</p>
+          <button className="btn primary" onClick={() => navigate('games', { tab: 'import' })}>
+            Import games
+          </button>
+        </div>
+      )}
+
+      {report.mistakes.length > 0 && (
+        <div className="card">
+          <h2>Where you first go wrong</h2>
+          <p className="muted small">Your first inaccuracy or worse in each analysed game, grouped by position. Repeated ones are habits worth fixing.</p>
+          <div className="opening-grid">
+            {report.mistakes.slice(0, 12).map((m) => (
+              <div key={m.key} className="notice stack" style={{ gap: 8 }}>
+                <div style={{ maxWidth: 240 }}>
+                  <Board
+                    fen={m.fen}
+                    orientation={m.fen.split(' ')[1] as 'w' | 'b'}
+                    arrows={[sanArrow(m.fen, m.played, 'r'), sanArrow(m.fen, m.best, 'g')].filter(Boolean) as Arrow[]}
+                    theme={core.settings.boardTheme}
+                    showCoords={false}
+                  />
+                </div>
+                <div>
+                  <span className={`cls-badge ${m.cls}`}>{m.games.length > 1 ? `${m.games.length}× ` : ''}{m.moveLabel}</span>
+                </div>
+                <div className="small">
+                  Better: <strong>{m.best ?? '?'}</strong> <span className="muted">({m.bestLine})</span>
+                </div>
+                <div className="muted small">Score in these games: {pct(m.games)}</div>
+                <div className="row">
+                  <button
+                    className="btn small primary"
+                    onClick={() => {
+                      setPending({ fen: m.fen });
+                      navigate('play');
+                    }}
+                  >
+                    Play it out vs engine
+                  </button>
+                  <button className="btn small" onClick={() => navigate('analysis', { game: m.games[0].id })}>
+                    See game
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="card">
+        <h2>Where you leave the lines you study</h2>
+        <p className="muted small">Positions from the opening library where you played something else. Drill the line to make the book move automatic.</p>
+        {report.deviations.length === 0 ? (
+          <p className="muted">No deviations found – either you follow the book, or your games use openings that aren’t in the library yet.</p>
+        ) : (
+          <div className="opening-grid">
+            {report.deviations.slice(0, 12).map((d) => (
+              <div key={d.key} className="notice stack" style={{ gap: 8 }}>
+                <div style={{ maxWidth: 240 }}>
+                  <Board
+                    fen={d.fen}
+                    orientation={d.fen.split(' ')[1] as 'w' | 'b'}
+                    arrows={[sanArrow(d.fen, d.played, 'r'), sanArrow(d.fen, d.bookMoves[0], 'g')].filter(Boolean) as Arrow[]}
+                    theme={core.settings.boardTheme}
+                    showCoords={false}
+                  />
+                </div>
+                <div style={{ fontWeight: 600 }}>{d.openingName}</div>
+                <div className="small">
+                  You played <strong>{d.moveLabel}</strong> {d.games.length > 1 ? `in ${d.games.length} games` : ''}; the book move is{' '}
+                  <strong>{d.bookMoves.join(' / ')}</strong>.
+                </div>
+                <div className="muted small">Score in these games: {pct(d.games)}</div>
+                <div className="row">
+                  <button className="btn small primary" onClick={() => navigate('openings', { id: d.openingId, line: String(d.lineIndex), mode: 'practice' })}>
+                    Drill the line
+                  </button>
+                  <button className="btn small" onClick={() => navigate('analysis', { game: d.games[0].id })}>
+                    See game
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

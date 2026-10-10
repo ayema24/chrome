@@ -26,6 +26,53 @@ interface GameState {
   reviews: Record<number, MoveAnalysis>;
   over: null | { result: GameRecord['result']; reason: string };
   saved: boolean;
+  /** Time control in seconds (null = untimed). */
+  tc?: { base: number; inc: number } | null;
+  /** Milliseconds left for each side at the start of the current turn. */
+  clock?: { w: number; b: number };
+  /** When the side to move started thinking (ms timestamp). */
+  turnStart?: number;
+  /** Seconds left after each move (for analysis of time trouble). */
+  clockLog?: number[];
+}
+
+export const TIME_CONTROLS: { label: string; tc: { base: number; inc: number } | null }[] = [
+  { label: 'Untimed', tc: null },
+  { label: '1+0 Bullet', tc: { base: 60, inc: 0 } },
+  { label: '3+2 Blitz', tc: { base: 180, inc: 2 } },
+  { label: '5+0 Blitz', tc: { base: 300, inc: 0 } },
+  { label: '10+0 Rapid', tc: { base: 600, inc: 0 } },
+  { label: '15+10 Rapid', tc: { base: 900, inc: 10 } },
+  { label: '30+0 Classical', tc: { base: 1800, inc: 0 } },
+];
+
+/** Appends a move, charging the mover's clock for the time used. */
+function addMove(g: GameState, mv: Move): GameState {
+  const next: GameState = { ...g, moves: [...g.moves, mv] };
+  if (g.tc && g.clock && g.turnStart) {
+    const now = Date.now();
+    const side = mv.color as 'w' | 'b';
+    const left = Math.max(0, g.clock[side] - (now - g.turnStart)) + g.tc.inc * 1000;
+    next.clock = { ...g.clock, [side]: left };
+    next.turnStart = now;
+    next.clockLog = [...(g.clockLog ?? []), Math.round(left / 1000)];
+  }
+  return next;
+}
+
+function remaining(g: GameState, side: 'w' | 'b', turn: 'w' | 'b', now: number): number {
+  if (!g.clock) return 0;
+  const running = !g.over && side === turn && g.turnStart;
+  return Math.max(0, g.clock[side] - (running ? now - g.turnStart! : 0));
+}
+
+function fmtClock(ms: number): string {
+  const t = Math.ceil(ms / 1000);
+  if (ms < 10000) return `${Math.floor(ms / 1000)}.${Math.floor((ms % 1000) / 100)}`;
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const sec = t % 60;
+  return `${h ? `${h}:${String(m).padStart(2, '0')}` : m}:${String(sec).padStart(2, '0')}`;
 }
 
 // Keep the game alive when navigating between pages (and across reloads).
@@ -44,12 +91,19 @@ const COACH_DEPTH = 12;
 
 export default function Play({ params }: { params: Record<string, string> }) {
   const core = useCore();
-  const [game, setGame] = useState<GameState | null>(savedGame);
-  const [setupFen, setSetupFen] = useState<string>(() => {
-    const pending = takePending<{ fen: string }>();
-    return pending?.fen ?? params.fen ?? '';
+  const [pending] = useState(() => takePending<{ fen: string; color?: 'w' | 'b' }>());
+  // Coming from "play from here" shows the setup screen (the unfinished game can be resumed).
+  const [game, setGame] = useState<GameState | null>(pending ? null : savedGame);
+  const [setupFen, setSetupFen] = useState<string>(pending?.fen ?? params.fen ?? '');
+  const [color, setColor] = useState<'w' | 'b' | 'random'>(pending?.color ?? 'w');
+  const [tcIdx, setTcIdx] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem('cc-tc') ?? '0', 10) || 0;
+    } catch {
+      return 0;
+    }
   });
-  const [color, setColor] = useState<'w' | 'b' | 'random'>('w');
+  const [now, setNow] = useState(Date.now());
   const [thinking, setThinking] = useState(false);
   const [view, setView] = useState<number | null>(null); // browsing history
   const [hintArrow, setHintArrow] = useState<Arrow | null>(null);
@@ -60,6 +114,7 @@ export default function Play({ params }: { params: Record<string, string> }) {
   gameRef.current = game;
 
   useEffect(() => {
+    if (!game) return;
     savedGame = game;
     try {
       if (game && !game.saved) localStorage.setItem(SAVE_KEY, JSON.stringify(game));
@@ -135,7 +190,7 @@ export default function Play({ params }: { params: Record<string, string> }) {
       if (gameRef.current?.id !== g.id || !uci || gameRef.current.moves.length !== g.moves.length || gameRef.current.over) return;
       const mv = chess.move(parseUci(uci));
       moveSound(mv.san);
-      let next: GameState = { ...gameRef.current!, moves: [...gameRef.current!.moves, mv] };
+      let next: GameState = addMove(gameRef.current!, mv);
       next = checkOver(next);
       setGame(next);
       if (next.over) finish(next);
@@ -162,7 +217,7 @@ export default function Play({ params }: { params: Record<string, string> }) {
     }
     moveSound(mv.san);
     setHintArrow(null);
-    let next: GameState = { ...game, moves: [...game.moves, mv] };
+    let next: GameState = addMove(game, mv);
     next = checkOver(next);
     setGame(next);
     if (next.over) {
@@ -215,7 +270,16 @@ export default function Play({ params }: { params: Record<string, string> }) {
       c.setHeader('SetUp', '1');
       c.setHeader('FEN', g.startFen);
     }
-    for (const m of g.moves) c.move(m.san);
+    g.moves.forEach((m, i) => {
+      c.move(m.san);
+      const left = g.clockLog?.[i];
+      if (left !== undefined) {
+        const h = Math.floor(left / 3600);
+        const mm = Math.floor((left % 3600) / 60);
+        c.setComment(`[%clk ${h}:${String(mm).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}]`);
+      }
+    });
+    if (g.tc) c.setHeader('TimeControl', `${g.tc.base}+${g.tc.inc}`);
     const lv = levelById(g.level);
     const you = 'You';
     const bot = `Stockfish ${lv.name} (${lv.elo})`;
@@ -235,6 +299,7 @@ export default function Play({ params }: { params: Record<string, string> }) {
       date: Date.now(),
       opening: nameOpening(g.moves.map((m) => m.after)),
       engineLevel: g.level,
+      timeControl: g.tc ? `${g.tc.base}+${g.tc.inc}` : undefined,
     };
   }
 
@@ -253,7 +318,13 @@ export default function Play({ params }: { params: Record<string, string> }) {
       reviews: {},
       over: null,
       saved: false,
+      tc: TIME_CONTROLS[tcIdx]?.tc ?? null,
     };
+    if (g.tc) {
+      g.clock = { w: g.tc.base * 1000, b: g.tc.base * 1000 };
+      g.turnStart = Date.now();
+      g.clockLog = [];
+    }
     evalCache.current.clear();
     sound.start();
     setBannerOpen(false);
@@ -299,6 +370,26 @@ export default function Play({ params }: { params: Record<string, string> }) {
       setGame((g) => (g ? { ...g, hints: g.hints + 1 } : g));
     }
   }
+
+  // Clock: tick while a timed game runs, and flag a side whose time runs out.
+  useEffect(() => {
+    if (!game?.tc || game.over) return;
+    const id = setInterval(() => setNow(Date.now()), 200);
+    return () => clearInterval(id);
+  }, [game?.tc, game?.over]);
+  useEffect(() => {
+    if (!game?.tc || game.over || !game.clock) return;
+    if (remaining(game, turn, turn, now) > 0) return;
+    getEngine().stopAll();
+    const g: GameState = {
+      ...game,
+      clock: { ...game.clock, [turn]: 0 },
+      over: { result: turn === 'w' ? '0-1' : '1-0', reason: `${turn === 'w' ? 'White' : 'Black'} lost on time` },
+    };
+    setGame(g);
+    finish(g);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [now]);
 
   // Terminal eval for display when the game ends
   useEffect(() => {
@@ -356,6 +447,30 @@ export default function Play({ params }: { params: Record<string, string> }) {
             </div>
           </div>
           <div>
+            <h3>Time control</h3>
+            <div className="seg">
+              {TIME_CONTROLS.map((t, i) => (
+                <button
+                  key={t.label}
+                  className={tcIdx === i ? 'active' : ''}
+                  onClick={() => {
+                    setTcIdx(i);
+                    try {
+                      localStorage.setItem('cc-tc', String(i));
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="muted small" style={{ marginTop: 4 }}>
+              Timed games train your clock management – the coach flags mistakes made in time trouble.
+            </div>
+          </div>
+          <div>
             <h3>Your colour</h3>
             <div className="seg">
               {(['w', 'random', 'b'] as const).map((c) => (
@@ -390,10 +505,15 @@ export default function Play({ params }: { params: Record<string, string> }) {
             <input type="text" value={setupFen} onChange={(e) => setSetupFen(e.target.value)} placeholder="Leave empty for the normal start position" />
           </label>
           {setupFen && !isValidFen(setupFen) && <div className="error">That FEN is not valid.</div>}
-          <div>
+          <div className="row">
             <button className="btn primary" onClick={start}>
               Start game
             </button>
+            {savedGame && !savedGame.over && !savedGame.saved && (
+              <button className="btn" onClick={() => setGame(savedGame)}>
+                Resume unfinished game
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -441,7 +561,10 @@ export default function Play({ params }: { params: Record<string, string> }) {
           <span>
             {game.userColor === 'w' ? '♚' : '♔'} Stockfish · {level.name} ({level.elo})
           </span>
-          <span className="muted">{thinking && turn !== game.userColor ? 'thinking…' : ''}</span>
+          <span className="row" style={{ gap: 8 }}>
+            <span className="muted">{thinking && turn !== game.userColor ? 'thinking…' : ''}</span>
+            {game.tc && <ClockFace ms={remaining(game, game.userColor === 'w' ? 'b' : 'w', turn, now)} active={!game.over && turn !== game.userColor} base={game.tc.base} />}
+          </span>
         </div>
         <div className="board-col">
           {game.coach && <EvalBar ev={liveEval} orientation={game.userColor} />}
@@ -470,7 +593,10 @@ export default function Play({ params }: { params: Record<string, string> }) {
         </div>
         <div className="player-strip">
           <span>{game.userColor === 'w' ? '♔' : '♚'} You</span>
-          <span className="muted">{userTurn ? 'your move' : ''}</span>
+          <span className="row" style={{ gap: 8 }}>
+            <span className="muted">{userTurn ? 'your move' : ''}</span>
+            {game.tc && <ClockFace ms={remaining(game, game.userColor, turn, now)} active={!game.over && turn === game.userColor} base={game.tc.base} />}
+          </span>
         </div>
       </div>
 
@@ -514,6 +640,11 @@ export default function Play({ params }: { params: Record<string, string> }) {
                 onClick={() => {
                   setGame(null);
                   savedGame = null;
+                  try {
+                    localStorage.removeItem(SAVE_KEY);
+                  } catch {
+                    /* ignore */
+                  }
                 }}
               >
                 New game
@@ -582,4 +713,9 @@ export default function Play({ params }: { params: Record<string, string> }) {
       </div>
     </div>
   );
+}
+
+function ClockFace({ ms, active, base }: { ms: number; active: boolean; base: number }) {
+  const low = ms < Math.min(20000, base * 100);
+  return <span className={`clock ${active ? 'active' : ''} ${low ? 'low' : ''}`}>{fmtClock(ms)}</span>;
 }

@@ -18,9 +18,11 @@ interface Props {
   onResult: (success: boolean, ms: number) => void;
   onNext: () => void;
   showRating?: boolean;
+  /** Puzzle Rush: no hints/solution/retry buttons, faster intro. */
+  compact?: boolean;
 }
 
-export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = true }: Props) {
+export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = true, compact = false }: Props) {
   const core = useCore();
   const solverColor = sideToMove(puzzle.fen);
   const [fen, setFen] = useState(puzzle.fenBeforeSetup ?? puzzle.fen);
@@ -72,7 +74,7 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
         setLastMove([puzzle.setupMove!.slice(0, 2), puzzle.setupMove!.slice(2, 4)]);
         setStatus('solving');
         startedAt.current = Date.now();
-      }, 700);
+      }, compact ? 350 : 700);
       return () => clearTimeout(t);
     }
     setFen(puzzle.fen);
@@ -277,7 +279,7 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
           </div>
         )}
         <div className="row">
-          {!done && (
+          {!done && !compact && (
             <>
               <button className="btn" onClick={hint} disabled={status === 'intro'}>
                 💡 Hint
@@ -287,7 +289,7 @@ export default function PuzzleSolver({ puzzle, onResult, onNext, showRating = tr
               </button>
             </>
           )}
-          {done && (
+          {done && !compact && (
             <>
               <button className="btn" onClick={retry}>
                 ↻ Retry
