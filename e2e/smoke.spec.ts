@@ -30,6 +30,17 @@ test('all pages render without errors', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('board colours are correct (a1 dark, h1 light) in both orientations', async ({ page }) => {
+  await page.goto('./#/analysis?fen=' + encodeURIComponent('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'));
+  for (let flip = 0; flip < 2; flip++) {
+    await expect(page.locator('[data-square=a1]')).toHaveClass(/dark/);
+    await expect(page.locator('[data-square=h1]')).toHaveClass(/light/);
+    await expect(page.locator('[data-square=d1]')).toHaveClass(/light/); // queen on her own colour
+    await expect(page.locator('[data-square=e8]')).toHaveClass(/light/);
+    await page.getByRole('button', { name: '⇅' }).first().click();
+  }
+});
+
 test('play a move against the engine and get coach feedback', async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto('./#/play');

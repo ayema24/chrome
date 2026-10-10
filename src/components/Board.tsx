@@ -309,13 +309,14 @@ export default function Board({
   for (let y = 0; y < 8; y++)
     for (let x = 0; x < 8; x++) {
       const sq = xyToSq(x, y, orientation)!;
-      const isLight = (FILES.indexOf(sq[0]) + parseInt(sq[1], 10)) % 2 === 1;
+      // a1 is a dark square: file index (0..7) + rank (1..8) is odd for dark squares
+      const isLight = (FILES.indexOf(sq[0]) + parseInt(sq[1], 10)) % 2 === 0;
       const classes = ['sq', isLight ? 'light' : 'dark'];
       if (lastMove && (lastMove[0] === sq || lastMove[1] === sq)) classes.push('last');
       if (selected === sq) classes.push('selected');
       if (checkSq === sq) classes.push('check');
       squares.push(
-        <div key={sq} className={classes.join(' ')} style={{ left: `${x * 12.5}%`, top: `${y * 12.5}%`, background: highlights[sq] }}>
+        <div key={sq} data-square={sq} className={classes.join(' ')} style={{ left: `${x * 12.5}%`, top: `${y * 12.5}%`, background: highlights[sq] }}>
           {showCoords && x === 0 && <span className={`coord rank ${isLight ? 'on-light' : 'on-dark'}`}>{sq[1]}</span>}
           {showCoords && y === 7 && <span className={`coord file ${isLight ? 'on-light' : 'on-dark'}`}>{sq[0]}</span>}
           {targets.has(sq) && <span className={targets.get(sq) ? 'hint capture' : 'hint'} />}
