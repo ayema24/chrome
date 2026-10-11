@@ -355,7 +355,18 @@ function EndgameGame({ drill, onBack }: { drill: EndgameDrill; onBack: () => voi
       }
     }
     if (c.isDraw() || c.isStalemate()) {
-      end(drill.goal === 'draw', drill.goal === 'draw' ? 'Draw secured – well defended!' : c.isStalemate() ? 'Stalemate! Careful – leave the king a square.' : 'The game was drawn.');
+      end(
+        drill.goal === 'draw',
+        drill.goal === 'draw'
+          ? 'Draw secured – well defended!'
+          : c.isStalemate()
+            ? 'Stalemate! Careful – leave the king a square.'
+            : c.isDrawByFiftyMoves()
+              ? 'Draw by the 50-move rule: 50 moves each without a capture or pawn move. Use a faster technique.'
+              : c.isInsufficientMaterial()
+                ? 'Draw – not enough material left to mate.'
+                : 'The game was drawn.',
+      );
       return true;
     }
     if (drill.goal === 'draw' && um >= (drill.moves ?? 30)) {
