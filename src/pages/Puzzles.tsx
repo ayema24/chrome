@@ -419,6 +419,29 @@ function EndgameGame({ drill, onBack }: { drill: EndgameDrill; onBack: () => voi
             You play {userColor === 'w' ? 'White' : 'Black'} against full-strength Stockfish.
           </p>
           <p className="muted small">💡 {drill.tip}</p>
+          {drill.steps && (
+            <details open>
+              <summary>
+                <strong>Technique, step by step</strong>
+              </summary>
+              <ol className="small">
+                {drill.steps.map((s) => {
+                  const i = s.indexOf(': ');
+                  return (
+                    <li key={s}>
+                      {i > 0 && i < 40 ? (
+                        <>
+                          <strong>{s.slice(0, i)}:</strong> {s.slice(i + 2)}
+                        </>
+                      ) : (
+                        s
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </details>
+          )}
           <div className="muted small">Moves played: {userMoves}</div>
         </div>
         {msg && <div className={`feedback ${status === 'won' ? 'ok' : 'fail'}`}>{msg}</div>}
