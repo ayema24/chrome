@@ -606,7 +606,7 @@ table.table {
 }
 @media (max-width: 960px) {
   .board-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1312,4 +1312,229 @@ table.table {
   text-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
   pointer-events: none;
   z-index: 8;
+}
+
+/* ---------------------------------------------------------------- app feel (touch / phone) */
+:root {
+  --tabbar-h: 58px;
+  --dock-h: 52px;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  overscroll-behavior-y: none;
+}
+button,
+.btn,
+.engine-line,
+.tabbar,
+.nav-buttons {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.nav-dock {
+  margin-top: 8px;
+}
+.mobile-under-board {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+.install-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+}
+.install-banner img {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  flex-shrink: 0;
+}
+.install-close {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 1rem;
+  padding: 6px;
+}
+
+@media (hover: none) {
+  /* Touch screens keep :hover after a tap; don't leave things highlighted. */
+  .btn:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
+  .btn.primary:hover:not(:disabled) {
+    background: var(--accent);
+    filter: none;
+  }
+  .mv:hover:not(.active) {
+    background: none;
+  }
+  .engine-line:hover {
+    color: inherit;
+  }
+  .btn:active:not(:disabled),
+  .nav-buttons button:active:not(:disabled),
+  .seg button:active,
+  .tabbar button:active {
+    filter: brightness(1.25);
+    transform: scale(0.97);
+  }
+}
+
+@media (max-width: 820px) {
+  .content {
+    padding: calc(10px + env(safe-area-inset-top)) 10px calc(var(--tabbar-h) + 24px + env(safe-area-inset-bottom));
+  }
+  .content:has(.nav-dock) {
+    padding-bottom: calc(var(--tabbar-h) + var(--dock-h) + 24px + env(safe-area-inset-bottom));
+  }
+  h1 {
+    font-size: 1.3rem;
+  }
+  .card {
+    padding: 12px;
+  }
+  .stack {
+    gap: 12px;
+  }
+  .board-layout {
+    gap: 12px;
+  }
+  .page-head {
+    margin-bottom: 10px;
+  }
+  /* iOS zooms into inputs smaller than 16px */
+  input[type='text'],
+  input[type='password'],
+  input[type='number'],
+  input[type='search'],
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  .btn {
+    padding: 10px 14px;
+  }
+  .btn.small {
+    padding: 7px 12px;
+  }
+  .seg button {
+    padding: 8px 12px;
+  }
+
+  .tabbar {
+    height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    backdrop-filter: blur(10px);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+  }
+  .tabbar button {
+    height: var(--tabbar-h);
+    justify-content: center;
+    gap: 2px;
+    position: relative;
+  }
+  .tabbar button.active {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .tabbar button.active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 30%;
+    right: 30%;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: var(--accent);
+  }
+
+  /* Move navigation docked above the tab bar, always under your thumb. */
+  .nav-dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    height: var(--dock-h);
+    margin: 0;
+    padding: 6px 10px;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border);
+    z-index: 49;
+  }
+  .nav-dock .nav-buttons {
+    height: 100%;
+    gap: 8px;
+  }
+  .nav-dock .nav-buttons button {
+    font-size: 1.1rem;
+    padding: 0;
+  }
+
+  /* Moves as one swipeable line under the board (like the chess apps). */
+  .movelist {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: none;
+    white-space: nowrap;
+    padding: 4px 6px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .movelist::-webkit-scrollbar {
+    display: none;
+  }
+  .mvrow {
+    display: contents;
+  }
+  .mvno {
+    padding: 0 2px 0 8px;
+  }
+  .mv {
+    padding: 6px 7px;
+    flex-shrink: 0;
+  }
+  .mv.empty:empty {
+    display: none;
+  }
+  .engine-lines {
+    gap: 6px;
+  }
+  .engine-line {
+    padding: 2px 0;
+  }
+  .player-strip {
+    padding: 2px;
+  }
+  .mobile-under-board .card .row > strong {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mobile-under-board .card .row > .spacer {
+    display: none;
+  }
+  .side-col > .seg {
+    display: flex;
+    flex-wrap: nowrap;
+  }
+  .side-col > .seg button {
+    flex: 1;
+    padding: 8px 6px;
+    font-size: 0.85rem;
+  }
 }

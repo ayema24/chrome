@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { useRoute, navigate, type Page } from './lib/router';
 import { useAnalyzer } from './lib/analyzer';
 import Home from './pages/Home';
+import { InstallBanner } from './components/InstallApp';
 
 const Play = lazy(() => import('./pages/Play'));
 const Puzzles = lazy(() => import('./pages/Puzzles'));
@@ -69,6 +70,7 @@ export default function App() {
         )}
       </aside>
       <main className="content">
+        {route.page === 'home' && <InstallBanner />}
         <Suspense fallback={<div className="loading">Loading…</div>}>{pageEl}</Suspense>
       </main>
       <nav className="tabbar">

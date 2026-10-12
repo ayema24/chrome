@@ -3,6 +3,7 @@ import Board from '../components/Board';
 import { useCore, updateSettings, updateCore, exportData, importData, resetAll } from '../lib/store';
 import { START_FEN } from '../lib/chess';
 import { sound } from '../lib/sound';
+import { InstallCard } from '../components/InstallApp';
 import { useSync, connectSync, disconnectSync, syncNow, TOKEN_URL } from '../lib/sync';
 
 export default function Settings() {
@@ -34,6 +35,8 @@ export default function Settings() {
       <div className="page-head">
         <h1>Settings</h1>
       </div>
+
+      <InstallCard />
 
       <div className="card stack" style={{ gap: 12 }}>
         <h2>Accounts</h2>
