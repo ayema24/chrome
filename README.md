@@ -42,6 +42,8 @@ npx playwright test   # end-to-end tests in a real browser
 
 **Deploy:** every push runs `.github/workflows/ci.yml` (typecheck, tests, build). Pushes to the default branch also deploy to GitHub Pages, at https://ayema24.github.io/chrome/ for this repo. Turn that on once under *Settings → Pages → Source: GitHub Actions*. The build uses relative paths, so it works from any sub-path or static host.
 
+**Install it as an app (free):** open the site on your phone, then on Android use Chrome's menu ⋮ → *Install app*, or on iPhone use Safari's Share → *Add to Home Screen*. It gets its own icon, opens full screen and works offline. *Settings → Install as an app* has the same steps. (To list it in the Google Play Store you can wrap this site with [PWABuilder](https://www.pwabuilder.com/), which is free; Google charges a one-time $25 developer fee to publish there.)
+
 Your data (games, ratings, history) is stored in the browser's IndexedDB. To use the app on more than one device, turn on *Settings → Sync between devices*. It saves to a secret GitHub Gist with a token that can only access Gists, and merges progress from every device. *Export backup* gives you a manual copy.
 
 ### Regenerating the offline puzzle set

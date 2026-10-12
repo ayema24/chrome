@@ -17,10 +17,19 @@ interface Props {
 
 export default function MoveList({ moves, current, onSelect, startMoveNumber = 1, startsWithBlack = false }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  // Keep the current move visible by scrolling the list itself only. (scrollIntoView
+  // would also scroll the page, which on a phone yanks the board off-screen.)
   useEffect(() => {
-    const el = ref.current?.querySelector('.mv.active');
-    el?.scrollIntoView({ block: 'nearest' });
-  }, [current]);
+    const box = ref.current;
+    const el = box?.querySelector<HTMLElement>('.mv.active');
+    if (!box || !el) return;
+    const b = box.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    if (r.top < b.top) box.scrollTop += r.top - b.top - 4;
+    else if (r.bottom > b.bottom) box.scrollTop += r.bottom - b.bottom + 4;
+    if (r.left < b.left) box.scrollLeft += r.left - b.left - 8;
+    else if (r.right > b.right) box.scrollLeft += r.right - b.right + 8;
+  }, [current, moves.length]);
   const rows: { no: number; w?: number; b?: number }[] = [];
   let no = startMoveNumber;
   let i = 0;

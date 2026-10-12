@@ -6,9 +6,11 @@ import { loadStore } from './lib/store';
 import { registerSW } from 'virtual:pwa-register';
 import { installAudioUnlock } from './lib/sound';
 import { startAutoSync } from './lib/sync';
+import { installPromptListener } from './lib/device';
 
 registerSW({ immediate: true });
 installAudioUnlock();
+installPromptListener();
 
 loadStore().then(() => {
   startAutoSync();

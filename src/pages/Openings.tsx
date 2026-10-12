@@ -295,7 +295,7 @@ function LearnLine({ o, line }: { o: OpeningDef; line: ParsedLine }) {
           theme={core.settings.boardTheme}
           showCoords={core.settings.showCoords}
         />
-        <div style={{ marginTop: 8 }}>
+        <div className="nav-dock">
           <NavButtons
             index={idx}
             max={line.sans.length}

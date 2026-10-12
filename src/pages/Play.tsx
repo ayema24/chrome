@@ -13,6 +13,7 @@ import { enqueueAnalysis } from '../lib/analyzer';
 import { navigate, takePending } from '../lib/router';
 import { moveSound, sound } from '../lib/sound';
 import { fireConfetti } from '../lib/confetti';
+import { useIsMobile } from '../lib/device';
 
 interface GameState {
   id: string;
@@ -91,6 +92,7 @@ const COACH_DEPTH = 12;
 
 export default function Play({ params }: { params: Record<string, string> }) {
   const core = useCore();
+  const mobile = useIsMobile();
   const [pending] = useState(() => takePending<{ fen: string; color?: 'w' | 'b' }>());
   // Coming from "play from here" shows the setup screen (the unfinished game can be resumed).
   const [game, setGame] = useState<GameState | null>(pending ? null : savedGame);
@@ -554,6 +556,23 @@ export default function Play({ params }: { params: Record<string, string> }) {
   const counts = { inaccuracy: 0, mistake: 0, blunder: 0 } as Record<string, number>;
   for (const r of reviewList) if (r.cls in counts) counts[r.cls]++;
 
+  const moveCard = (
+    <div className="card">
+      <MoveList
+        moves={game.moves.map((m, i) => ({ san: m.san, cls: game.reviews[i]?.cls }))}
+        current={view ?? game.moves.length}
+        onSelect={(i) => setView(i === game.moves.length ? null : i)}
+        startsWithBlack={game.startFen.split(' ')[1] === 'b'}
+        startMoveNumber={parseInt(game.startFen.split(' ')[5] ?? '1', 10)}
+      />
+      {view !== null && (
+        <button className="btn small" style={{ marginTop: 8 }} onClick={() => setView(null)}>
+          Back to the game
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className="board-layout">
       <div>
@@ -598,6 +617,7 @@ export default function Play({ params }: { params: Record<string, string> }) {
             {game.tc && <ClockFace ms={remaining(game, game.userColor, turn, now)} active={!game.over && turn === game.userColor} base={game.tc.base} />}
           </span>
         </div>
+        {mobile && <div className="mobile-under-board">{moveCard}</div>}
       </div>
 
       <div className="side-col">
@@ -677,20 +697,7 @@ export default function Play({ params }: { params: Record<string, string> }) {
           </div>
         )}
 
-        <div className="card">
-          <MoveList
-            moves={game.moves.map((m, i) => ({ san: m.san, cls: game.reviews[i]?.cls }))}
-            current={view ?? game.moves.length}
-            onSelect={(i) => setView(i === game.moves.length ? null : i)}
-            startsWithBlack={game.startFen.split(' ')[1] === 'b'}
-            startMoveNumber={parseInt(game.startFen.split(' ')[5] ?? '1', 10)}
-          />
-          {view !== null && (
-            <button className="btn small" style={{ marginTop: 8 }} onClick={() => setView(null)}>
-              Back to the game
-            </button>
-          )}
-        </div>
+        {!mobile && moveCard}
 
         {!game.over && (
           <div className="row">

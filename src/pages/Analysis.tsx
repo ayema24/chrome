@@ -14,11 +14,13 @@ import { importPgnText } from '../lib/db';
 import { navigate, setPending, takePending } from '../lib/router';
 import { moveSound } from '../lib/sound';
 import { nameOpening } from '../lib/openings';
+import { useIsMobile } from '../lib/device';
 
 export default function Analysis({ params }: { params: Record<string, string> }) {
   const core = useCore();
   const games = useGames();
   const analyzer = useAnalyzer();
+  const mobile = useIsMobile();
   const record = params.game ? games.find((g) => g.id === params.game) ?? null : null;
 
   const [startFen, setStartFen] = useState(START_FEN);
@@ -178,6 +180,63 @@ export default function Analysis({ params }: { params: Record<string, string> })
   const opening = useMemo(() => nameOpening(line.slice(0, Math.max(idx, 1)).map((m) => m.after)), [line, idx]);
   const queued = record && analyzer.currentId === record.id;
 
+  const engineCard = (
+    <div className="card">
+      <div className="row">
+        <strong>{opening ?? (record ? `${record.white} – ${record.black}` : 'Analysis board')}</strong>
+        <span className="spacer" />
+        <button className="btn small" onClick={() => setOrientation(orientation === 'w' ? 'b' : 'w')}>
+          ⇅
+        </button>
+        <label className="check small">
+          <input type="checkbox" checked={engineOn} onChange={(e) => setEngineOn(e.target.checked)} /> Engine
+        </label>
+      </div>
+      {engineOn && (
+        <div className="engine-lines" style={{ marginTop: 8 }}>
+          <div className="muted small">Stockfish 18 · depth {depth}</div>
+          {lines.map((l) => {
+            const ev = lineToEval(l, fen);
+            const sans = uciLineToSan(fen, l.pv, 10);
+            return (
+              <div key={l.multipv} className="engine-line" onClick={() => playMove(l.pv[0])} title="Play this move">
+                <span className="ev">{formatEval(ev)}</span>
+                <span>{formatLine(fen, sans)}</span>
+              </div>
+            );
+          })}
+          {new Chess(fen).isGameOver() && <div className="muted small">Game over.</div>}
+        </div>
+      )}
+    </div>
+  );
+  const reviewFeedback = moveReview ? (
+    <div className={`feedback ${['mistake', 'blunder'].includes(moveReview.cls) ? 'fail' : moveReview.cls === 'inaccuracy' ? '' : 'ok'}`}>
+      <div className="row" style={{ marginBottom: 4 }}>
+        <span className={`cls-badge ${moveReview.cls}`}>{CLASS_LABEL[moveReview.cls]}</span>
+        <strong>{moveReview.san}</strong>
+        <span className="muted small">{formatEval(moveReview.evalAfter)}</span>
+        {moveReview.tags
+          .filter((t) => t !== 'positional')
+          .map((t) => (
+            <span className="pill" key={t}>
+              {TAG_LABEL[t]}
+            </span>
+          ))}
+      </div>
+      <div className="small">{moveReview.explanation}</div>
+    </div>
+  ) : null;
+  const moveList = (
+    <MoveList
+      moves={line.map((m, i) => ({ san: m.san, cls: analysis?.moves[i]?.cls }))}
+      current={idx}
+      onSelect={setIdx}
+      startsWithBlack={startFen.split(' ')[1] === 'b'}
+      startMoveNumber={parseInt(startFen.split(' ')[5] ?? '1', 10)}
+    />
+  );
+
   return (
     <div className="board-layout">
       <div>
@@ -208,9 +267,16 @@ export default function Analysis({ params }: { params: Record<string, string> })
             <span>{orientation === 'w' ? record.white : record.black}</span>
           </div>
         )}
-        <div style={{ marginTop: 8 }}>
+        <div className="nav-dock">
           <NavButtons index={idx} max={line.length} onChange={setIdx} />
         </div>
+        {mobile && (
+          <div className="mobile-under-board">
+            {moveList}
+            {engineCard}
+            {reviewFeedback}
+          </div>
+        )}
         {analysis && (
           <div style={{ marginTop: 10 }}>
             <EvalGraph evals={analysis.evals} moves={analysis.moves} current={idx} onSelect={(i) => setIdx(i)} />
@@ -219,34 +285,7 @@ export default function Analysis({ params }: { params: Record<string, string> })
       </div>
 
       <div className="side-col">
-        <div className="card">
-          <div className="row">
-            <strong>{opening ?? (record ? `${record.white} – ${record.black}` : 'Analysis board')}</strong>
-            <span className="spacer" />
-            <button className="btn small" onClick={() => setOrientation(orientation === 'w' ? 'b' : 'w')}>
-              ⇅
-            </button>
-            <label className="check small">
-              <input type="checkbox" checked={engineOn} onChange={(e) => setEngineOn(e.target.checked)} /> Engine
-            </label>
-          </div>
-          {engineOn && (
-            <div className="engine-lines" style={{ marginTop: 8 }}>
-              <div className="muted small">Stockfish 18 · depth {depth}</div>
-              {lines.map((l) => {
-                const ev = lineToEval(l, fen);
-                const sans = uciLineToSan(fen, l.pv, 10);
-                return (
-                  <div key={l.multipv} className="engine-line" onClick={() => playMove(l.pv[0])} title="Play this move">
-                    <span className="ev">{formatEval(ev)}</span>
-                    <span>{formatLine(fen, sans)}</span>
-                  </div>
-                );
-              })}
-              {new Chess(fen).isGameOver() && <div className="muted small">Game over.</div>}
-            </div>
-          )}
-        </div>
+        {!mobile && engineCard}
 
         <div className="seg">
           {(['review', 'explorer', 'load'] as const).map((t) => (
@@ -305,23 +344,7 @@ export default function Analysis({ params }: { params: Record<string, string> })
                 </div>
               </div>
             )}
-            {moveReview && (
-              <div className={`feedback ${['mistake', 'blunder'].includes(moveReview.cls) ? 'fail' : moveReview.cls === 'inaccuracy' ? '' : 'ok'}`}>
-                <div className="row" style={{ marginBottom: 4 }}>
-                  <span className={`cls-badge ${moveReview.cls}`}>{CLASS_LABEL[moveReview.cls]}</span>
-                  <strong>{moveReview.san}</strong>
-                  <span className="muted small">{formatEval(moveReview.evalAfter)}</span>
-                  {moveReview.tags
-                    .filter((t) => t !== 'positional')
-                    .map((t) => (
-                      <span className="pill" key={t}>
-                        {TAG_LABEL[t]}
-                      </span>
-                    ))}
-                </div>
-                <div className="small">{moveReview.explanation}</div>
-              </div>
-            )}
+            {!mobile && reviewFeedback}
             {!isMain && (
               <div className="notice row">
                 <span className="small">You’re exploring a variation.</span>
@@ -336,13 +359,7 @@ export default function Analysis({ params }: { params: Record<string, string> })
                 </button>
               </div>
             )}
-            <MoveList
-              moves={line.map((m, i) => ({ san: m.san, cls: analysis?.moves[i]?.cls }))}
-              current={idx}
-              onSelect={setIdx}
-              startsWithBlack={startFen.split(' ')[1] === 'b'}
-              startMoveNumber={parseInt(startFen.split(' ')[5] ?? '1', 10)}
-            />
+            {!mobile && moveList}
             <div className="row">
               <button
                 className="btn small"
